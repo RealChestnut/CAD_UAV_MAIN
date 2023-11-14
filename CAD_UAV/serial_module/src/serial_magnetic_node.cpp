@@ -23,12 +23,16 @@
 #include <std_msgs/String.h>
 #include <std_msgs/Empty.h>
 #include <std_msgs/Float32.h>
+#include <std_msgs/UInt16.h>
+#include <sys/ioctl.h>
+#define TIOCINQ 0x541B
 
 using namespace std;
 
 serial::Serial ser;
 std_msgs::String ToSub;
 std_msgs::String push_data;
+
 float buffer=0;
 string message_safety="1";
 
@@ -47,12 +51,18 @@ void push_data_callback(const std_msgs::String& msg){
     push_data.data = msg.data;
 }
 
+int switch_data;
+void switch_data_callback(const std_msgs::UInt16::ConstPtr& msg){
+    switch_data = msg->data;
+}
+
 
 int main (int argc, char** argv){
     ros::init(argc, argv, "serial_node");
     ros::NodeHandle nh;
     
     ros::Subscriber push_data_sub = nh.subscribe("ToSubData",1,push_data_callback);
+    ros::Subscriber switch_data_sub = nh.subscribe("switch_onoff",1,switch_data_callback,ros::TransportHints().tcpNoDelay());
     ros::Publisher read_from_sub = nh.advertise<std_msgs::String>("read_from_sub", 1);
 
     
@@ -60,10 +70,11 @@ int main (int argc, char** argv){
     try
     {
         ser.setPort("/dev/ttySERIAL");
-        ser.setBaudrate(115200);
+        ser.setBaudrate(57600);
         serial::Timeout to = serial::Timeout::simpleTimeout(1000);
         ser.setTimeout(to);
-	//ser.setFlowcontrol(ser.getFlowcontrol());
+	serial::flowcontrol_t flow_state = serial::flowcontrol_t::flowcontrol_none;
+        ser.setFlowcontrol(flow_state);
         ser.open();
     }
     catch (serial::IOException& e)
@@ -82,12 +93,14 @@ int main (int argc, char** argv){
     ros::Rate loop_rate(200);
 
     int cnt=0;
+    int time_cnt=0;
+    int cnt_mean=0;
     bool reopen_flag=false; 
     while(ros::ok()){
          
         ros::spinOnce();
 
-
+	time_cnt++;
 	//write data-------------------------------//
 
         //ROS_INFO_STREAM("subscribe : " <<push_data.data);
@@ -104,9 +117,16 @@ int main (int argc, char** argv){
 	ROS_INFO_STREAM(message_safety);
 	if(message_safety=="1"){ser.write(push_data.data);
 	ROS_INFO("data_sending");}*/
-	ROS_INFO_STREAM(push_data.data);
-
+	//ROS_INFO_STREAM(push_data.data);
+	
 	ser.write(push_data.data);
+	int count = 0;
+	int dumi = 0;
+	if(ser.isOpen()){dumi=ser.fd_num();
+		ioctl (dumi, TIOCINQ, &count);
+		ROS_INFO_STREAM(count);
+	}
+	if(time_cnt=200){time_cnt=0;cnt=0;}
 
         //----------------------------------------//
 	
@@ -117,4 +137,3 @@ int main (int argc, char** argv){
 
     }
 }
-

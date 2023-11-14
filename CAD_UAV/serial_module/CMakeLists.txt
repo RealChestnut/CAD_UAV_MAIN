@@ -24,5 +24,3 @@ add_executable(serial_magnetic_node src/serial_magnetic_node.cpp)
 target_link_libraries(serial_magnetic_node
   ${catkin_LIBRARIES}
 )
-
-
