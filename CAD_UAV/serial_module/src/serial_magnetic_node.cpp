@@ -25,7 +25,6 @@
 #include <std_msgs/Float32.h>
 #include <std_msgs/UInt16.h>
 #include <sys/ioctl.h>
-#define TIOCINQ 0x541B
 
 using namespace std;
 
@@ -56,9 +55,24 @@ void switch_data_callback(const std_msgs::UInt16::ConstPtr& msg){
     switch_data = msg->data;
 }
 
+int cnt=0;
+int time_cnt=0;
+int cnt_mean=0;
+bool switch_toggle=false;
+void debouncing()
+{
+  time_cnt++;
+  cnt_mean+=switch_data;
+  if(time_cnt==50){
+	  if(cnt_mean>=25){switch_toggle=false; cnt_mean=0;time_cnt=0; ROS_INFO("OFF");}
+	  else {switch_toggle=true;cnt_mean=0; time_cnt=0;ROS_INFO("ON");}
+  }
+
+}
+
 
 int main (int argc, char** argv){
-    ros::init(argc, argv, "serial_node");
+    ros::init(argc, argv, "serial_node_main");
     ros::NodeHandle nh;
     
     ros::Subscriber push_data_sub = nh.subscribe("ToSubData",1,push_data_callback);
@@ -92,40 +106,23 @@ int main (int argc, char** argv){
     
     ros::Rate loop_rate(200);
 
-    int cnt=0;
-    int time_cnt=0;
-    int cnt_mean=0;
     bool reopen_flag=false; 
     while(ros::ok()){
          
         ros::spinOnce();
+	debouncing(); //for debouncing count
 
-	time_cnt++;
 	//write data-------------------------------//
 
         //ROS_INFO_STREAM("subscribe : " <<push_data.data);
-        /*
 	if(ser.available()){
 		message_safety=ser.read();
 		ROS_INFO_STREAM("receive   : " << message_safety);}
- 	if(message_safety=="0"){
-		cnt++;}
-	if(cnt>1000){
-	message_safety="1";
-		cnt=0;}
 		
-	ROS_INFO_STREAM(message_safety);
-	if(message_safety=="1"){ser.write(push_data.data);
-	ROS_INFO("data_sending");}*/
 	//ROS_INFO_STREAM(push_data.data);
 	
-	ser.write(push_data.data);
-	int count = 0;
-	int dumi = 0;
-	if(ser.isOpen()){dumi=ser.fd_num();
-		ioctl (dumi, TIOCINQ, &count);
-		ROS_INFO_STREAM(count);
-	}
+	if(!switch_data){if(!push_data.data.empty()){ser.write(push_data.data);}}
+	if(switch_data){ser.flush();}
 	if(time_cnt=200){time_cnt=0;cnt=0;}
 
         //----------------------------------------//

@@ -109,9 +109,11 @@ int main(int argc, char **argv)
     Clock();
 
 
-    shape_detector(); // receiving data from arduino. (switch on off, connector servo rotation)
-    UpdateParameter(); // setMoI,pid_Gain_Setting, etc. W.R.T. Combined or NOT
-
+    shape_detector(); 
+    // receiving data from arduino. (switch on off, connector servo rotation)
+    // (swiching safety function +++)
+    UpdateParameter(module_num); // setMoI,pid_Gain_Setting, etc. W.R.T. Combined or NOT
+    Switching_safety(); //23.11.16
     if(main_agent)
     {
       if(!kill_mode) // kill_mode toggle position
@@ -120,7 +122,7 @@ int main(int argc, char **argv)
       Command_Generator();
       setCM_Xc_p2();
       attitude_controller();
-      if(DOB_mode){torque_DOB();} //23.10.09
+      if(!mono_flight){torque_DOB();} //23.10.09
       position_controller();
       altitude_controller();
 

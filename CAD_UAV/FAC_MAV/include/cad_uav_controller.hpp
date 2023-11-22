@@ -28,7 +28,7 @@ geometry_msgs::Vector3 tau_rpy_desired; // desired torque (N.m)
 double tau_y_sin = 0; //yaw sine term torque (N.m)
 double tau_y_d_non_sat=0;//yaw deried torque non-saturation (N.m)
 double tau_y_th = 0; // yaw desired torque w.r.t. servo tilt (N.m)
-double tau_y_th_Integ = 0; // yaw desired torque (I-controller) w.r.t. servo tilt( N.m) || 23.10.30
+double tau_y_th_integ = 0; // yaw desired torque (I-controller) w.r.t. servo tilt( N.m) || 23.10.30
 
 geometry_msgs::Vector3 rpy_ddot_desired; // angular acceleration
 
@@ -164,6 +164,50 @@ double e_X_dot_i = 0;//X velocity error integration
 double e_Y_dot_i = 0;//Y velocity error integration
 double e_Z_dot_i = 0;//Z velocity error integration
 
+////////////// torque DOB /////////////////
+
+Eigen::MatrixXd MinvQ_T_A(2,2);
+Eigen::MatrixXd MinvQ_T_B(2,1);
+
+Eigen::MatrixXd MinvQ_T_C_x(1,2);
+Eigen::MatrixXd MinvQ_T_C_y(1,2);
+Eigen::MatrixXd MinvQ_T_C_z(1,2);
+
+Eigen::MatrixXd Q_T_A(2,2);
+Eigen::MatrixXd Q_T_B(2,1);
+Eigen::MatrixXd Q_T_C(1,2);
+
+Eigen::MatrixXd MinvQ_T_X_x(2,1);
+Eigen::MatrixXd MinvQ_T_X_x_dot(2,1);
+Eigen::MatrixXd MinvQ_T_X_y(1,1);
+Eigen::MatrixXd Q_T_X_x(2,1);
+Eigen::MatrixXd Q_T_X_x_dot(2,1);
+Eigen::MatrixXd Q_T_X_y(1,1);
+
+Eigen::MatrixXd MinvQ_T_Y_x(2,1);
+Eigen::MatrixXd MinvQ_T_Y_x_dot(2,1);
+Eigen::MatrixXd MinvQ_T_Y_y(1,1);
+Eigen::MatrixXd Q_T_Y_x(2,1);
+Eigen::MatrixXd Q_T_Y_x_dot(2,1);
+Eigen::MatrixXd Q_T_Y_y(1,1);
+
+Eigen::MatrixXd MinvQ_T_Z_x(2,1);
+Eigen::MatrixXd MinvQ_T_Z_x_dot(2,1);
+Eigen::MatrixXd MinvQ_T_Z_y(1,1);
+Eigen::MatrixXd Q_T_Z_x(2,1);
+Eigen::MatrixXd Q_T_Z_x_dot(2,1);
+Eigen::MatrixXd Q_T_Z_y(1,1);
+
+double torque_dob_fc = 3.0;
+double dhat_tau_r = 0;
+double dhat_tau_p = 0;
+double dhat_tau_y = 0;
+geometry_msgs::Vector3 torque_dhat;
+double tautilde_r_d =0;
+double tautilde_p_d =0;
+double tautilde_y_d =0;
+
+
 //////////////////////// TOPIC MESSAGE START //////////////////////
 
 
@@ -286,7 +330,7 @@ double voltage_old=22.4;
 std_msgs::Float32 battery_voltage_msg;
 
 // ARDUINO SWITCH DATA CALLBACK //
-bool switch_toggle_from_ardu;
+char switch_toggle_from_ardu=1;
 
 
 // wrench allocation data(torque, force) && kill_switch command from main //
@@ -298,13 +342,19 @@ Eigen::VectorXd wrench_allo_vector(6);
 
 
 
+/////////////////// shape detector /////////////////
 
-int module_num=0;
-bool mono_flight = false;// 결합 시퀀스시에는 이 텀이 바뀌게 설정
-int button_cnt=0;
-bool main_agent=true; 
-bool sub_agent=false;
-double servo_90rot=1.5708; //90deg
+
+int module_num=1; // system module number 
+bool mono_flight = false;// flight alone OR not?
+int button_cnt=0; //  count button count per loop
+bool main_agent=true; // sub drone :: false when combined
+int button_limit=10; // button count limit
+
+int cnt_switching=0; // mono -> combined || combined -> mono :: for distinguish
+double time_switching=0; // 
+int time_limit_switching=2; // 
+
 void shape_detector()
 {
 
@@ -320,18 +370,30 @@ void shape_detector()
   /////// button data toggling ////////
 
   if(switch_toggle_from_ardu==1){
-    servo_90rot=0.0;
+	  button_cnt--;
   }
   if(switch_toggle_from_ardu==0){
-    servo_90rot=1.5708;
+	  button_cnt++;
   }
-
+  if(button_cnt<0){button_cnt=0;}
+  if(button_cnt>button_limit){button_cnt=button_limit;}
+  
+  if(button_cnt==button_limit){// we define that this state is combined
+	  mono_flight = false;
+  	  module_num=2;
+  	  //main_agent=false; for sub drone
+	  } 
+  else{ // we define that this state is disassembled
+  	  mono_flight = true;
+  	  module_num=1;
+  	  //main_agent=true; for sub drone
+	  }
   /////////////////////////////////////
-  
-
-  
-
 }
+////////////////////////////////////////////////////////////////////////
+
+
+
 
 Eigen::Matrix3d origin_MoI;
 Eigen::Matrix3d hat_CoM_x_main;
@@ -379,6 +441,7 @@ void setMoI(){
 
 void pid_Gain_Setting()
 {
+
 	Par = tilt_Par;
 	Iar = tilt_Iar;
 	Dar = tilt_Dar;
@@ -407,7 +470,7 @@ void pid_Gain_Setting()
 ////////////////////////////////// Parameter Update Function //////////////////////////////////
 Eigen::Vector3d X_c_p1;
 Eigen::Vector3d X_c_p2;
-void UpdateParameter()
+void UpdateParameter(int num)
 {
 
   //shpe detector의 조건에 따라서 parameter 값 update
@@ -426,8 +489,6 @@ void UpdateParameter()
   // 업데이트 하고자 할 경우 함수 루프에서 한번더 돌려야함.
  
 
-  int num = 2; // 추후에 switch코드와 호환될 수 있도록 수정23.10.16
-
   if(num==1){
                 CoM_hat.x = -0.001;
 	    	CoM_hat.y = -0.022;
@@ -439,7 +500,7 @@ void UpdateParameter()
                 X_c_p2 << CoM_hat.x,CoM_hat.y,CoM_hat.z;
                 toggle_sub1=0;
                 toggle_sub2=0;
-                module_num=1;
+
 
   }
   else if(num==2){
@@ -447,7 +508,6 @@ void UpdateParameter()
 	  	CoM_hat.x = -0.001;
                 CoM_hat.y = -0.012;
                 CoM_hat.z = -0.086;
-      
 
 
                 mass_system = mass_main+mass_sub1;
@@ -456,7 +516,6 @@ void UpdateParameter()
                 X_c_p2 << CoM_hat.x, 0, CoM_hat.z;
                 toggle_sub1=1;
                 toggle_sub2=0;
-                module_num =2;
 
   }
   else if(num==3){
@@ -467,17 +526,68 @@ void UpdateParameter()
                 X_c_p2 << 0,0,0;
                 toggle_sub1=1;
                 toggle_sub2=1;
-                module_num=3;
   }
   // Data (combinated with other data)
   F_xd_limit=mass_system*2;
   F_yd_limit=mass_system*2;
   T_limit = mass_system*10;
+  
   //// system MoI Initialize ////
+  setMoI();
+  //////////////////////////////
+  
+  //// set pid gain ////
   pid_Gain_Setting();
-  setMoI();  
+  //////////////////////
+  
+
+
+  /////////////////  reset data when drones are switching ///////////////////////
+  
+  
+  if(cnt_switching==1){if(mono_flight){
+                }
+  e_r_i = 0;//roll error integration
+  e_p_i = 0;//pitch error integration
+  e_y_i = 0;//yaw error integration
+  e_X_i = 0;//X position error integration
+  e_Y_i = 0;//Y position error integration
+  e_Z_i = 0;//Z position error integration
+  e_X_dot_i = 0;//X velocity error integration
+  e_Y_dot_i = 0;//Y velocity error integration
+  e_Z_dot_i = 0;//Z velocity error integration
+  tau_y_th_integ = 0;//tau yaw servo integration
+  
+  
+  // torque DOB parameter //
+  dhat_tau_r = 0;
+  dhat_tau_p = 0;
+  dhat_tau_y = 0;
+  tautilde_r_d =0;
+  tautilde_p_d =0;
+  tautilde_y_d =0;}
   
 }
+
+//////////////////////Switching Safety//////////////////////
+void Switching_safety(){
+  
+  //switching_safety_start//
+  if(cnt_switching==0){if(!mono_flight){cnt_switching=1;}}
+  if(cnt_switching==1){if(mono_flight){
+          /* switching safety process  */
+          // Fxyd limit || accel_limit //
+          F_xd_limit=mass_system*0.5; //acc limit 1m/s^2
+          F_yd_limit=mass_system*0.5;
+          time_switching+=delta_t.count();}}
+  if(time_switching>time_limit_switching){
+          cnt_switching=0;
+          time_switching=0;}
+  //switching_safety_end//
+
+}
+////////////////////////////////////////////////////////////
+
 
 ////////////////////////////////// Command Gennerator ///////////////////////////////////
 
@@ -538,10 +648,6 @@ void Command_Generator()
         y_d_tangent=y_vel_limit*(((double)Sbus[0]-(double)1500)/(double)500);
         if(fabs(y_d_tangent)<y_d_tangent_deadzone || fabs(y_d_tangent)>y_vel_limit) y_d_tangent=0;
         rpy_desired.z+=y_d_tangent;}
-    else if(sub_agent && !mono_flight){ /// 서브드론의 경우 Sbus[0]를 다이나믹셀 position desired input으로 사용
-        
-        swap_dynamixel_angle  = swap_dynamixel_vel_limit*(((double)Sbus[0]-(double)1500)/(double)500); // angle data generate
-        swap_dynamixel_ang_d += swap_dynamixel_angle;} // servo angle initial position + swap d
     
     //---------------------------------position command------------------------------------------//
 
@@ -564,8 +670,7 @@ void Command_Generator()
   
   ////////////////////////////////// GROUND STATION COMMAND /////////////////////////////////////
 
-  if(false/*ground station*/)
-  {
+  if(false/*ground station*/){
     ///////// //angle command ////////////
     
     rpy_desired.x = 0.0;
@@ -588,9 +693,7 @@ void Command_Generator()
               //HoverClient.call(Service);
 	      }
         }
-        else Land_Checker = 0;		
-      }
-    }
+        else Land_Checker = 0;}}
 
     if(isHovering){
 	    if(XYZ_desired.z<=1) XYZ_desired.z += Hovering_Inc; // 2.5초간 상승 ASDF
@@ -612,8 +715,7 @@ void Command_Generator()
 		}
     }
 
-    if (!isHovering || !isLanding )
-    {
+    if (!isHovering || !isLanding ){
       if(X_Goal - XYZ_desired.x >= X_Inc ) XYZ_desired.x +=X_Inc;
       if(X_Goal - XYZ_desired.x <= -X_Inc ) XYZ_desired.x -=X_Inc;
 
@@ -627,10 +729,10 @@ void Command_Generator()
       if(z_Goal - XYZ_desired.z <= -z_Inc) XYZ_desired.z -=z_Inc;
     }
 
-  }
+  } //ground station end
+
  ///////////////////////////////////////////////////////////////////////////////////////////
 }
-
 
 ////////////////////Attitude Controller///////////////////////
 
@@ -649,9 +751,6 @@ void attitude_controller()
   e_p = rpy_desired.y - imu_rpy.y;
   e_y = rpy_desired.z - imu_rpy.z;
 
-  //ang_acl.x =f (imu_ang_vel.x-prev_ang_vel.x)/delta_t.count();
-	//ang_acl.y = (imu_ang_vel.y-prev_ang_vel.y)/delta_t.count();
-	//ang_acl.z = (imu_ang_vel.z-prev_ang_vel.z)/delta_t.count();
 
   e_r_i += e_r * delta_t.count();
 	if (fabs(e_r_i) > integ_limit)	e_r_i = (e_r_i / fabs(e_r_i)) * integ_limit;
@@ -669,7 +768,7 @@ void attitude_controller()
   rpy_ddot_cmd << rpy_ddot_d.x, rpy_ddot_d.y, rpy_ddot_d.z;
 
   //tau_cmd = hat_MoI*rpy_ddot_cmd; // Calculate tau rpy
-  //
+  
   if(!mono_flight){
         tau_rpy_desired.x = Jxx*rpy_ddot_cmd(0);
         tau_rpy_desired.y = Jyy*rpy_ddot_cmd(1);
@@ -688,47 +787,6 @@ void attitude_controller()
 }
 
 ////////////// torque DOB /////////////////
-
-Eigen::MatrixXd MinvQ_T_A(2,2);
-Eigen::MatrixXd MinvQ_T_B(2,1);
-
-Eigen::MatrixXd MinvQ_T_C_x(1,2);
-Eigen::MatrixXd MinvQ_T_C_y(1,2);
-Eigen::MatrixXd MinvQ_T_C_z(1,2);
-
-Eigen::MatrixXd Q_T_A(2,2);
-Eigen::MatrixXd Q_T_B(2,1);
-Eigen::MatrixXd Q_T_C(1,2);
-
-Eigen::MatrixXd MinvQ_T_X_x(2,1);
-Eigen::MatrixXd MinvQ_T_X_x_dot(2,1);
-Eigen::MatrixXd MinvQ_T_X_y(1,1);
-Eigen::MatrixXd Q_T_X_x(2,1);
-Eigen::MatrixXd Q_T_X_x_dot(2,1);
-Eigen::MatrixXd Q_T_X_y(1,1);
-
-Eigen::MatrixXd MinvQ_T_Y_x(2,1);
-Eigen::MatrixXd MinvQ_T_Y_x_dot(2,1);
-Eigen::MatrixXd MinvQ_T_Y_y(1,1);
-Eigen::MatrixXd Q_T_Y_x(2,1);
-Eigen::MatrixXd Q_T_Y_x_dot(2,1);
-Eigen::MatrixXd Q_T_Y_y(1,1);
-
-Eigen::MatrixXd MinvQ_T_Z_x(2,1);
-Eigen::MatrixXd MinvQ_T_Z_x_dot(2,1);
-Eigen::MatrixXd MinvQ_T_Z_y(1,1);
-Eigen::MatrixXd Q_T_Z_x(2,1);
-Eigen::MatrixXd Q_T_Z_x_dot(2,1);
-Eigen::MatrixXd Q_T_Z_y(1,1);
-
-double torque_dob_fc = 3.0;
-double dhat_tau_r = 0;
-double dhat_tau_p = 0;
-double dhat_tau_y = 0;
-geometry_msgs::Vector3 torque_dhat;
-double tautilde_r_d =0;
-double tautilde_p_d =0;
-double tautilde_y_d =0;
 
 void torque_DOB()
 {
@@ -797,7 +855,7 @@ void torque_DOB()
 
 	torque_dhat.x=dhat_tau_r;
 	torque_dhat.y=dhat_tau_p;
-	torque_dhat.z=dhat_tau_y;
+	torque_dhat.z= 0; //dhat_tau_y;
 }
 
 ////////////////////Position_Controller///////////////////////
@@ -875,13 +933,8 @@ void velocity_controller()
   if(fabs(XYZ_ddot_desired.y) > XYZ_ddot_limit) XYZ_ddot_desired.y = (XYZ_ddot_desired.y/fabs(XYZ_ddot_desired.y))*XYZ_ddot_limit;
   X_ddot_d=XYZ_ddot_desired.x;
   Y_ddot_d=XYZ_ddot_desired.y;
-/*  F_xyzd.x = mass_system*(W2B_rot(0,0)*XYZ_ddot_desired.x
-                   +W2B_rot(0,1)*XYZ_ddot_desired.y
-                   +W2B_rot(0,2)*(-XYZ_ddot_desired.z));
   
-  F_xyzd.y = mass_system*(W2B_rot(1,0)*(-XYZ_ddot_desired.x)
-                   +W2B_rot(1,1)*XYZ_ddot_desired.y
-                   +W2B_rot(1,2)*XYZ_ddot_desired.z);*/
+  
   F_xd = mass_system*(X_ddot_d*cos(imu_rpy.z)*cos(imu_rpy.y)+Y_ddot_d*sin(imu_rpy.z)*cos(imu_rpy.y)-(Z_ddot_d)*sin(imu_rpy.y));
   F_yd = mass_system*(-X_ddot_d*(cos(imu_rpy.x)*sin(imu_rpy.z)-cos(imu_rpy.z)*sin(imu_rpy.x)*sin(imu_rpy.y))+Y_ddot_d*(cos(imu_rpy.x)*cos(imu_rpy.z)+sin(imu_rpy.x)*sin(imu_rpy.y)*sin(imu_rpy.z))+(Z_ddot_d)*cos(imu_rpy.y)*sin(imu_rpy.x));
   // Force limitation
@@ -924,6 +977,7 @@ void altitude_controller()
 
   //F_zd = mass*(X_ddot_d*(sin(imu_rpy.x)*sin(imu_rpy.z)+cos(imu_rpy.x)*cos(imu_rpy.z)*sin(imu_rpy.y))-Y_ddot_d*(cos(imu_rpy.z)*sin(imu_rpy.x)-cos(imu_rpy.x)*sin(imu_rpy.y)*sin(imu_rpy.z))+(Z_ddot_d)*cos(imu_rpy.x)*cos(imu_rpy.y));
 }
+
 
 
 
@@ -1061,14 +1115,14 @@ void yaw_torque_distribute()
 	if(fabs(tau_y_th) > tau_y_th_limit) tau_y_th = (tau_y_th/fabs(tau_y_th))*tau_y_th_limit;//2023.08.17 update
   }
 
-  tau_y_th_Integ+=(1*tau_rpy_desired.z);
-  if(fabs(tau_y_th_Integ) > tau_y_limit)
+  tau_y_th_integ+=(1*tau_rpy_desired.z);
+  if(fabs(tau_y_th_integ) > tau_y_limit)
   {
-	 tau_y_th_Integ = (tau_y_th_Integ/fabs(tau_y_th_Integ))*tau_y_limit; 
+	 tau_y_th_integ = (tau_y_th_integ/fabs(tau_y_th_integ))*tau_y_limit; 
   }
 
   distributed_yaw_torque.data[0]= tau_y_non_sat; //23.10.05
-  distributed_yaw_torque.data[1]= tau_y_th+tau_y_th_Integ; //23.10.30
+  distributed_yaw_torque.data[1]= tau_y_th+tau_y_th_integ; //23.10.30
   
 }
 
@@ -1220,7 +1274,7 @@ void PWM_signal_Generator()
   F3= Forces_safety(desired_prop_force(2));
   F4= Forces_safety(desired_prop_force(3));
   setSA();
-  control_by_theta << F_xyzd.x, F_xyzd.y, tau_y_th+tau_y_th_Integ, 0;
+  control_by_theta << F_xyzd.x, F_xyzd.y, tau_y_th+tau_y_th_integ, 0;
   sine_theta_command = invSA*control_by_theta;
 
   theta1_command = asin(asine_safety(sine_theta_command(0)));
@@ -1298,6 +1352,7 @@ void reset_data()
 
   tau_y_th=0;
 }
+
 
 void PublishData()
 {
@@ -1451,7 +1506,7 @@ void sbus_Callback(const std_msgs::Int16MultiArray::ConstPtr& array)
     for(int i=0;i<10;i++){
 		Sbus[i]=map<int16_t>(array->data[i], 352, 1696, 1000, 2000);
 	}
-	
+    if(main_agent){	
       if(Sbus[4]<1500){
         kill_mode=true;}
       else {
@@ -1477,7 +1532,7 @@ void sbus_Callback(const std_msgs::Int16MultiArray::ConstPtr& array)
 	DOB_mode=true;}
       else{
 	DOB_mode=false;}
-
+      }
  
 }
 

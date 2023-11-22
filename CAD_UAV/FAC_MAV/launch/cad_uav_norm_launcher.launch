@@ -2,7 +2,6 @@
     
     <include file="$(find setting_tf2)/launch/tf2_setting.launch">
  </include>
-<?ignore
   <!-- Dynamixel Workbench Controller -->
   <include file="$(find dynamixel_workbench_controllers)/launch/position_control.launch">
         <arg name="device_name"        		default="/dev/ttyU2D2"/>
@@ -13,7 +12,7 @@
 	<arg name="position_i_gain"		default="500"/>
 	<arg name="position_d_gain"		default="300"/>
 	<arg name="scan_range"                  default="33"/>
-    </include> ?>
+    </include> 
 	<!-- ros_mscl -->
     <include file="$(find microstrain_inertial_driver)/launch/microstrain.launch">
 <!-- 	<arg name="params_file"            default = "" /> -->
@@ -86,12 +85,12 @@
 		<!--Tilt Mode attitude_r gains-->
 		<param name="tilt_attitude_r_P_gain"	value="20.0"/> <!-- 8.5 --> <!-- 15.0 -->	
 		<param name="tilt_attitude_r_I_gain"	value="1.2"/> <!-- 1.2 --> <!-- 0.5 -->
-		<param name="tilt_attitude_r_D_gain"	value="5.0"/> <!-- 8.5 --> <!-- 12.0 -->
+		<param name="tilt_attitude_r_D_gain"	value="8.0"/> <!-- 8.5 --> <!-- 12.0 -->
 		
 		<!--Tilt Mode attitude_p gains-->
 		<param name="tilt_attitude_p_P_gain"	value="20.0"/>	
 		<param name="tilt_attitude_p_I_gain"	value="1.2"/>	
-		<param name="tilt_attitude_p_D_gain"	value="5.0"/> 
+		<param name="tilt_attitude_p_D_gain"	value="8.0"/> 
 
 		<!--Tilt Mode attitude_y gains-->
 		<param name="tilt_attitude_y_P_gain"	value="12.0"/>

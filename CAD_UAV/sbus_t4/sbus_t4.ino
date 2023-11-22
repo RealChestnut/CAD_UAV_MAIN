@@ -5,9 +5,9 @@
 //Arduino Due based 6 channel R/C Reader + Signal Writer to 4 ESCs for T3_Multirotor
 //Modified for
 //ROS competible system
-//Modified for 
+//Modified for
 //Arduino Due based 8 channel Sbus + Signal Writer to 4 ESCs for T4_Multirotor
-//Modified for 
+//Modified for
 //Arduino Due based 8 channel Sbus Receiver
 
 //reference_publish:  http://wiki.ros.org/rosserial_arduino/Tutorials/Hello%20World
@@ -42,6 +42,20 @@
 #include <std_msgs/Int16.h>
 #include <std_msgs/Int32.h>
 #include <std_msgs/UInt16.h>
+//#include <Servo.h>
+
+
+#define servo1 A0
+#define servo2 A1
+
+int angle_command = 0;
+//void servo_cb()
+//{
+//  servo1.write(angle_command); // set servo angle, should be from 0-180
+//  servo2.write(angle_command);
+//  // digitalWrite(13, HIGH-digitalRead(13)); //toggle led
+//}
+
 //--------------------------------------------------------------------------------------
 
 #if defined(ARDUINO) && ARDUINO >=100
@@ -56,8 +70,8 @@ ros::NodeHandle nh;
 std_msgs::Int16MultiArray sbus_msg;
 std_msgs::Int16 voltage_msg;
 std_msgs::UInt16 isdock;
-ros::Publisher sbus("sbus",&sbus_msg);
-ros::Publisher battery("battery",&voltage_msg);
+ros::Publisher sbus("sbus", &sbus_msg);
+ros::Publisher battery("battery", &voltage_msg);
 ros::Publisher message("switch_onoff", &isdock);
 //--------------------------------------------------------------------------------------
 
@@ -73,111 +87,117 @@ ros::Publisher message("switch_onoff", &isdock);
 // Servo Switch =========================================================
 #define btn A7
 
-uint8_t sbus_data[25] = {0x0f,0x01,0x04,0x20,0x00,0xff,0x07,0x40,0x00,0x02,0x10,0x80,0x2c,0x64,0x21,0x0b,0x59,0x08,0x40,0x00,0x02,0x10,0x80,0x00,0x00};
-int16_t channels[18]  = {1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,0,0};
+uint8_t sbus_data[25] = {0x0f, 0x01, 0x04, 0x20, 0x00, 0xff, 0x07, 0x40, 0x00, 0x02, 0x10, 0x80, 0x2c, 0x64, 0x21, 0x0b, 0x59, 0x08, 0x40, 0x00, 0x02, 0x10, 0x80, 0x00, 0x00};
+int16_t channels[18]  = {1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 0, 0};
 uint8_t  failsafe_status = SBUS_SIGNAL_FAILSAFE;
 
-uint8_t failsafe(void) {return failsafe_status;}
+uint8_t failsafe(void) {
+  return failsafe_status;
+}
 //-------------------------------------------------------------------------------------
 
 
 //for Read S.BUS data===========================================================
 int16_t channel(uint8_t ch) {
-    // Read channel data
-    if ((ch>0)&&(ch<=16)){
-        return channels[ch-1];
-    }else{
-        return 1023;
-    }
+  // Read channel data
+  if ((ch > 0) && (ch <= 16)) {
+    return channels[ch - 1];
+  } else {
+    return 1023;
+  }
 }
 
- 
+
 
 void update_channels(void) {
-    // Read all received data and calculate channel data
-    uint8_t i;
-    uint8_t sbus_pointer = 0;
-    while (Serial1.available()) {
-        uint8_t data = Serial1.read(); // get data from serial rx buffer
-        switch (sbus_pointer) {
-            case 0: // Byte 1
-                if (data==0x0f) {
-                    sbus_data[sbus_pointer] = data;
-                    sbus_pointer++;
-                }
-                break;
-            case 24:    // Byte 25 >> if last byte == 0x00 >> convert data
-                if (data==0x00) {
-                    sbus_data[sbus_pointer] = data;
-                    // clear channels[]
-                    for (i=0; i<16; i++) {channels[i] = 0;}
- 
-                    // reset counters
-                    uint8_t byte_in_sbus = 1;
-                    uint8_t bit_in_sbus = 0;
-                    uint8_t ch = 0;
-                    uint8_t bit_in_channel = 0;
- 
-                    // process actual sbus data
-                    for (i=0; i<176; i++) {
-                        if (sbus_data[byte_in_sbus] & (1<<bit_in_sbus)) {
-                            channels[ch] |= (1<<bit_in_channel);
-                        }
-                        bit_in_sbus++;
-                        bit_in_channel++;
- 
-                        if (bit_in_sbus == 8) {
-                            bit_in_sbus =0;
-                            byte_in_sbus++;
-                        }
-                        if (bit_in_channel == 11) {
-                            bit_in_channel =0;
-                            ch++;
-                        }
-                    }
-                    // DigiChannel 1
-                    if (sbus_data[23] & (1<<0)) {
-                        channels[16] = 1;
-                    }else{
-                        channels[16] = 0;
-                    }
-                    // DigiChannel 2
-                    if (sbus_data[23] & (1<<1)) {
-                        channels[17] = 1;
-                    }else{
-                        channels[17] = 0;
-                    }
-                    // Failsafe
-                    failsafe_status = SBUS_SIGNAL_OK;
-                    if (sbus_data[23] & (1<<2)) {
-                        failsafe_status = SBUS_SIGNAL_LOST;
-                    }
-                    if (sbus_data[23] & (1<<3)) {
-                        failsafe_status = SBUS_SIGNAL_FAILSAFE;
-                    }
-                }
-                break;
- 
-            default:  // collect Channel data (11bit) / Failsafe information
-                sbus_data[sbus_pointer] = data;
-                sbus_pointer++;
+  // Read all received data and calculate channel data
+  uint8_t i;
+  uint8_t sbus_pointer = 0;
+  while (Serial1.available()) {
+    uint8_t data = Serial1.read(); // get data from serial rx buffer
+    switch (sbus_pointer) {
+      case 0: // Byte 1
+        if (data == 0x0f) {
+          sbus_data[sbus_pointer] = data;
+          sbus_pointer++;
         }
+        break;
+      case 24:    // Byte 25 >> if last byte == 0x00 >> convert data
+        if (data == 0x00) {
+          sbus_data[sbus_pointer] = data;
+          // clear channels[]
+          for (i = 0; i < 16; i++) {
+            channels[i] = 0;
+          }
+
+          // reset counters
+          uint8_t byte_in_sbus = 1;
+          uint8_t bit_in_sbus = 0;
+          uint8_t ch = 0;
+          uint8_t bit_in_channel = 0;
+
+          // process actual sbus data
+          for (i = 0; i < 176; i++) {
+            if (sbus_data[byte_in_sbus] & (1 << bit_in_sbus)) {
+              channels[ch] |= (1 << bit_in_channel);
+            }
+            bit_in_sbus++;
+            bit_in_channel++;
+
+            if (bit_in_sbus == 8) {
+              bit_in_sbus = 0;
+              byte_in_sbus++;
+            }
+            if (bit_in_channel == 11) {
+              bit_in_channel = 0;
+              ch++;
+            }
+          }
+          // DigiChannel 1
+          if (sbus_data[23] & (1 << 0)) {
+            channels[16] = 1;
+          } else {
+            channels[16] = 0;
+          }
+          // DigiChannel 2
+          if (sbus_data[23] & (1 << 1)) {
+            channels[17] = 1;
+          } else {
+            channels[17] = 0;
+          }
+          // Failsafe
+          failsafe_status = SBUS_SIGNAL_OK;
+          if (sbus_data[23] & (1 << 2)) {
+            failsafe_status = SBUS_SIGNAL_LOST;
+          }
+          if (sbus_data[23] & (1 << 3)) {
+            failsafe_status = SBUS_SIGNAL_FAILSAFE;
+          }
+        }
+        break;
+
+      default:  // collect Channel data (11bit) / Failsafe information
+        sbus_data[sbus_pointer] = data;
+        sbus_pointer++;
     }
+  }
 }
 //------------------------------------------------------------------------------------------
 
 
 void setup() {
-  
+
   // For ROS========================================================================
   nh.getHardware()->setBaud(57600);
-//  Serial.begin(250000);
-  Serial1.begin(100000,SERIAL_8E2);
-  pinMode(BATTERY_V_PIN,INPUT);
+  //  Serial.begin(250000);
+  Serial1.begin(100000, SERIAL_8E2);
+  pinMode(BATTERY_V_PIN, INPUT);
   pinMode(btn, INPUT);
   digitalWrite(btn, HIGH);
-  
-  sbus_msg.data=(short int *)malloc(sizeof(short int) * 10);
+  //  servo1.attach(A0); // attach(signal line num)
+  //  servo2.attach(A1);
+
+  sbus_msg.data = (short int *)malloc(sizeof(short int) * 10);
   sbus_msg.data_length = 10;
   nh.initNode();
   nh.advertise(sbus);
@@ -188,11 +208,12 @@ void setup() {
   //analogWriteResolution(12);
 }
 
-
-int32_t sbus_time=0, update_time=0,start_time=0;
+int16_t button_cnt = 0;
+int16_t button_limit = 10;
+int32_t sbus_time = 0, update_time = 0, start_time = 0;
 void loop() {
   start_time = micros();
-  
+
   update_channels();
   sbus_msg.data[0] = channel(1);
   sbus_msg.data[1] = channel(2);
@@ -204,22 +225,28 @@ void loop() {
   sbus_msg.data[7] = channel(8);
   sbus_msg.data[8] = channel(10);
   sbus_msg.data[9] = channel(13);
-  
+
   if (digitalRead(btn) == LOW)
   {
-  isdock.data = 0;
-  message.publish(&isdock);
+    isdock.data = 0;
+    //    button_cnt--;
+    message.publish(&isdock);
   }
   else
   {
-  isdock.data = 1;
-  message.publish(&isdock);
+    isdock.data = 1;
+    //    button_cnt++;
+    message.publish(&isdock);
   }
-  
+  //    if(button_cnt<0){button_cnt=0;}
+  //    if(button_cnt>button_limit){button_cnt=button_limit;}
+  //    if(button_cnt==button_limit){angle_command=90;}
+  //    else{angle_command=0;}
+
   voltage_msg.data = analogRead(BATTERY_V_PIN);
   sbus.publish(&sbus_msg);
   battery.publish(&voltage_msg);
   nh.spinOnce();
-  
-  while(micros()-start_time<20000);
+
+  while (micros() - start_time < 20000);
 }
