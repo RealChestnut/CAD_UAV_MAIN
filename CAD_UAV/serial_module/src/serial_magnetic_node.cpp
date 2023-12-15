@@ -119,9 +119,10 @@ int main (int argc, char** argv){
 		message_safety=ser.read();
 		ROS_INFO_STREAM("receive   : " << message_safety);}
 		
-	//ROS_INFO_STREAM(push_data.data);
+	ROS_INFO_STREAM(push_data.data);
 	
-	if(!switch_data){if(!push_data.data.empty()){ser.write(push_data.data);}}
+	//if(!switch_data){if(!push_data.data.empty()){ser.write(push_data.data);}}
+	ser.write(push_data.data);
 	if(switch_data){ser.flush();}
 	if(time_cnt=200){time_cnt=0;cnt=0;}
 

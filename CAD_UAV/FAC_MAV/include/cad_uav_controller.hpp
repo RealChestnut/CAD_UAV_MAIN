@@ -53,8 +53,8 @@ double r_arm = 0.3025;// m // diagonal length between thruster x2
 double l_servo = 0.035; // length from servo motor to propeller
 
 double mass_system =0.0; // system mass (kg) ex) M = main+sub1+sub2
-double mass_main = 7.9; //9.0; // main drone mass(kg) 
-double mass_sub1 = 7.5;//9.0; // sub1 drone mass (kg)
+double mass_main = 7.15; //9.0; // main drone mass(kg) 
+double mass_sub1 = 8.80; // sub1 drone mass (kg)
 double mass_sub2 = 9.0; // sub2 drone mass (kg)
 
 double r2=sqrt(2); // root(2)
@@ -346,7 +346,7 @@ Eigen::VectorXd wrench_allo_vector(6);
 
 
 int module_num=1; // system module number 
-bool mono_flight = false;// flight alone OR not?
+bool mono_flight = true;// flight alone OR not?
 int button_cnt=0; //  count button count per loop
 bool main_agent=true; // sub drone :: false when combined
 int button_limit=10; // button count limit
@@ -368,7 +368,6 @@ void shape_detector()
   //Eigen3
 
   /////// button data toggling ////////
-
   if(switch_toggle_from_ardu==1){
 	  button_cnt--;
   }
@@ -381,13 +380,20 @@ void shape_detector()
   if(button_cnt==button_limit){// we define that this state is combined
 	  mono_flight = false;
   	  module_num=2;
+	  ROS_INFO("COMBINED!!!!!!!!!!!");
   	  //main_agent=false; for sub drone
 	  } 
   else{ // we define that this state is disassembled
   	  mono_flight = true;
   	  module_num=1;
+	  ROS_INFO("MONO_FLIGHT!!!!!!!!!");
   	  //main_agent=true; for sub drone
 	  }
+  //mono_flight=true;
+  //module_num=1;
+
+   
+
   /////////////////////////////////////
 }
 ////////////////////////////////////////////////////////////////////////
@@ -490,9 +496,13 @@ void UpdateParameter(int num)
  
 
   if(num==1){
-                CoM_hat.x = -0.001;
-	    	CoM_hat.y = -0.022;
-		CoM_hat.z = -0.086;	
+                CoM_hat.x = -0.013;
+	    	CoM_hat.y = -0.025;
+		CoM_hat.z = -0.065;
+		
+		Jxx = 1.23;
+		Jyy = 1.23;
+		Jzz = 1.50;
 
                 mass_system = mass_main;
 
@@ -505,10 +515,13 @@ void UpdateParameter(int num)
   }
   else if(num==2){
 
-	  	CoM_hat.x = -0.001;
+	  	CoM_hat.x = -0.002;
                 CoM_hat.y = -0.012;
-                CoM_hat.z = -0.086;
-
+                CoM_hat.z = -0.065;
+		
+		Jxx = 6.42;//0.71;//0.82;//1.17;//1.23;//6.75;
+		Jyy = 3.5;//3.5;//3.20//2.30;//1.12;//0.56;//0.56;//0.71;//0.208;//1.23;//1.71;
+		Jzz = 2.30;
 
                 mass_system = mass_main+mass_sub1;
 
@@ -660,7 +673,7 @@ void Command_Generator()
       else if(Sbus[2]<1200){
         XYZ_desired.z+=0.0005;}
         
-      if(XYZ_desired.z <-0.7) XYZ_desired.z=-0.7;
+      if(XYZ_desired.z <-0.5) XYZ_desired.z=-0.5;
       if(XYZ_desired.z > 0) XYZ_desired.z=0;}
     else{
 		T_d = -T_limit*(((double)Sbus[2]-(double)1500)/(double)500)-T_limit;}
@@ -768,7 +781,7 @@ void attitude_controller()
   rpy_ddot_cmd << rpy_ddot_d.x, rpy_ddot_d.y, rpy_ddot_d.z;
 
   //tau_cmd = hat_MoI*rpy_ddot_cmd; // Calculate tau rpy
-  
+ 
   if(!mono_flight){
         tau_rpy_desired.x = Jxx*rpy_ddot_cmd(0);
         tau_rpy_desired.y = Jyy*rpy_ddot_cmd(1);
@@ -1326,6 +1339,8 @@ void reset_data()
   desired_prop_force(1) =0;
   desired_prop_force(2) =0;
   desired_prop_force(3) =0;
+	
+
 
   theta1_command=0.0;
   theta2_command=0.0;
@@ -1359,7 +1374,7 @@ void PublishData()
   //// only main drone case /////
   if(main_agent)
   {
-	
+  ROS_INFO_STREAM(send_data_for_sub);  
   ToSubAgent.publish(send_data_for_sub); // send for sub agent data
   }
   //////////////////////////////
