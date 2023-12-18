@@ -10,6 +10,12 @@ void t265_position_Callback(const geometry_msgs::Vector3& msg);
 void battery_Callback(const std_msgs::Int16& msg);
 void switch_Callback(const std_msgs::UInt16& msg);
 void main2sub_data_Callback(const std_msgs::Float32MultiArray& msg);
+void main_pose_data_Callback(const std_msgs::Float32MultiArray& msg);
+void sub_pose_data_Callback(const std_msgs::Float32MultiArray& msg);
+
+//////////////////////////////////////////////////////////////////////////
+
+void linear_vel_LPF();
 
 ////ROS NODE HANDLE////
 
@@ -225,6 +231,9 @@ ros::Subscriber t265_odom; // odometry data (linear velocity) callback from T265
 
 ros::Subscriber main2sub_data; // main 2 sub data callback
 
+ros::Subscriber main_pose_data; //main pose data from optitrack
+ros::Subscriber sub_pose_data; // sub pose data from optitrack
+
 //////////////////////// PUBLISHER START /////////////////////////
 
 ros::Publisher PWMs; // PWM data logging
@@ -268,6 +277,25 @@ void Clock()
   //ROS_INFO_STREAM("Clock Time : " << dt.data);
 
 }
+/////////////////// OPTITRACK DATA CALLBACK ///////////////////////
+geometry_msgs::Vector3 main_position_opti;
+geometry_msgs::Vector3 main_attitude_opti;
+geometry_msgs::Vector3 sub_position_opti;
+geometry_msgs::Vector3 sub_attitude_opti;
+geometry_msgs::Vector3 lin_vel_opti;
+geometry_msgs::Vector3 opti_position_prev;
+geometry_msgs::Vector3 opti_position_new;
+
+double x_x_dot = 0;
+double x_y_dot = 0;
+double x_z_dot = 0;
+
+double x_x = 0;
+double x_y = 0;
+double x_z = 0;
+double lin_vel_cut_off_freq = 1.0;
+
+Eigen::VectorXd lin_vel_LPF(3);
 
 //SERVO ANGLE CALLBACK//
 Eigen::VectorXd servo_theta(5);
@@ -380,13 +408,13 @@ void shape_detector()
   if(button_cnt==button_limit){// we define that this state is combined
 	  mono_flight = false;
   	  module_num=2;
-	  ROS_INFO("COMBINED!!!!!!!!!!!");
+	  //ROS_INFO("COMBINED!!!!!!!!!!!");
   	  //main_agent=false; for sub drone
 	  } 
   else{ // we define that this state is disassembled
   	  mono_flight = true;
   	  module_num=1;
-	  ROS_INFO("MONO_FLIGHT!!!!!!!!!");
+	  //ROS_INFO("MONO_FLIGHT!!!!!!!!!");
   	  //main_agent=true; for sub drone
 	  }
   //mono_flight=true;
@@ -1323,7 +1351,10 @@ void PWM_signal_Generator()
 void reset_data()
 {
 
-  rpy_desired.z=t265_att.z;     //[J]This line ensures that yaw desired right after disabling the kill switch becomes current yaw attitude
+  rpy_desired.z=main_attitude_opti.z;//t265_att.z;     //[J]This line ensures that yaw desired right after disabling the kill switch becomes current yaw attitude
+
+  XYZ_desired_base.x=opti_position_new.x;
+  XYZ_desired_base.y=opti_position_new.y;
 
 
   e_r_i = 0;
@@ -1374,7 +1405,7 @@ void PublishData()
   //// only main drone case /////
   if(main_agent)
   {
-  ROS_INFO_STREAM(send_data_for_sub);  
+  //ROS_INFO_STREAM(send_data_for_sub);  
   ToSubAgent.publish(send_data_for_sub); // send for sub agent data
   }
   //////////////////////////////
@@ -1444,6 +1475,8 @@ void imu_Callback(const sensor_msgs::Imu& msg)
 
     // TP attitude - Euler representation
     tf::Matrix3x3(quat).getRPY(imu_rpy.x,imu_rpy.y,imu_rpy.z);
+    
+    /*
     base_yaw = t265_yaw_angle;
     if(base_yaw - yaw_prev < -pi) yaw_rotate_count++;
     else if(base_yaw - yaw_prev > pi) yaw_rotate_count--;
@@ -1451,17 +1484,8 @@ void imu_Callback(const sensor_msgs::Imu& msg)
 	
     imu_rpy.z = yaw_now;
     yaw_prev = base_yaw;
-
-    W2B_rot <<  
-    cos(imu_rpy.y)*cos(imu_rpy.z), 
-    cos(imu_rpy.y)*sin(imu_rpy.z), 
-    sin(imu_rpy.y), 
-    cos(imu_rpy.x)*sin(imu_rpy.z)-cos(imu_rpy.z)*sin(imu_rpy.y)*sin(imu_rpy.x), 
-    cos(imu_rpy.x)*cos(imu_rpy.z)+sin(imu_rpy.y)*sin(imu_rpy.x)*sin(imu_rpy.z), 
-    cos(imu_rpy.y)*sin(imu_rpy.x), 
-    cos(imu_rpy.x)*cos(imu_rpy.z)*sin(imu_rpy.y)+sin(imu_rpy.x)*sin(imu_rpy.z), 
-    cos(imu_rpy.z)*sin(imu_rpy.x)-cos(imu_rpy.x)*sin(imu_rpy.y)*sin(imu_rpy.z), 
-    cos(imu_rpy.y)*cos(imu_rpy.x);
+*/
+    imu_rpy.z = main_attitude_opti.z;
 	
 }
 
@@ -1628,4 +1652,65 @@ void main2sub_data_Callback(const std_msgs::Float32MultiArray& msg)
   wrench_allo_vector(4)=msg.data[4]; //Tp
   wrench_allo_vector(5)=msg.data[5]; //Ty
   kill_mode=static_cast<bool>(msg.data[6]);
+}
+
+
+/////////////////// OPTITRACK DATA CALLBACK ///////////////////////
+
+void main_pose_data_Callback(const std_msgs::Float32MultiArray& msg){
+	main_attitude_opti.x = msg.data[3];
+	main_attitude_opti.y = msg.data[4];
+	main_attitude_opti.z = msg.data[5];
+	
+	position_from_t265.x = msg.data[0];
+	position_from_t265.y = msg.data[1];
+	position_from_t265.z = msg.data[2];
+
+
+	opti_position_new.x = msg.data[0];
+	opti_position_new.y = msg.data[1];
+	opti_position_new.z = msg.data[2];
+	if((opti_position_new.x - opti_position_prev.x)!=0){
+	lin_vel_opti.x = (opti_position_new.x - opti_position_prev.x)/delta_t.count();
+	lin_vel_opti.y = (opti_position_new.y - opti_position_prev.y)/delta_t.count();
+	lin_vel_opti.z = (opti_position_new.z - opti_position_prev.z)/delta_t.count();
+	}
+
+	x_x_dot=-lin_vel_cut_off_freq*x_x+lin_vel_opti.x;
+        x_x+=x_x_dot*delta_t.count();
+  	x_y_dot=-lin_vel_cut_off_freq*x_y+lin_vel_opti.y;
+        x_y+=x_y_dot*delta_t.count();
+
+  	x_z_dot=-lin_vel_cut_off_freq*x_z+lin_vel_opti.z;
+        x_z+=x_z_dot*delta_t.count();
+	
+  	lin_vel_LPF(0)=lin_vel_cut_off_freq*x_x;
+  	lin_vel_LPF(1)=lin_vel_cut_off_freq*x_y;
+  	lin_vel_LPF(2)=lin_vel_cut_off_freq*x_z;
+
+			
+	ROS_INFO_STREAM(lin_vel_opti.x);
+
+	// global axis :: linear velocity
+    lin_vel.x=lin_vel_LPF(0);//lin_vel_opti.x;
+    lin_vel.y=lin_vel_LPF(1);//lin_vel_opti.y;
+    lin_vel.z=lin_vel_LPF(2);//lin_vel_opti.z;
+
+    opti_position_prev.x = opti_position_new.x;
+    opti_position_prev.y = opti_position_new.y;
+    opti_position_prev.z = opti_position_new.z;
+
+	
+
+}
+
+void sub_pose_data_Callback(const std_msgs::Float32MultiArray& msg){
+
+	sub_position_opti.x = msg.data[0];
+        sub_position_opti.y = msg.data[1];
+        sub_position_opti.z = msg.data[2];
+        sub_attitude_opti.x = msg.data[3];
+        sub_attitude_opti.y = msg.data[4];
+        sub_attitude_opti.z = msg.data[5];
+
 }

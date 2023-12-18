@@ -1,8 +1,14 @@
 <launch>
-    
+   <?ignore 
     <include file="$(find setting_tf2)/launch/tf2_setting.launch">
  </include>
-<?ignore
+?>
+
+ <include file="$(find optitrack)/launch/optitrack.launch">
+ </include>
+
+ <node pkg="setting_tf2_opti" type="setting_drone_tf_opti" name="setting_drone_tf_node"/>
+
   <!-- Dynamixel Workbench Controller -->
   <include file="$(find dynamixel_workbench_controllers)/launch/position_control.launch">
         <arg name="device_name"        		default="/dev/ttyU2D2"/>
@@ -13,7 +19,7 @@
 	<arg name="position_i_gain"		default="500"/>
 	<arg name="position_d_gain"		default="300"/>
 	<arg name="scan_range"                  default="33"/>
-    </include> ?>
+    </include> 
 	<!-- ros_mscl -->
     <include file="$(find microstrain_inertial_driver)/launch/microstrain.launch">
 <!-- 	<arg name="params_file"            default = "" /> -->
@@ -101,9 +107,9 @@
 
 
 		<!--Tilt Mode Altitude gains-->
-		<param name="tilt_altitude_P_gain"	value="13.0"/>
-		<param name="tilt_altitude_I_gain"	value="5.0"/>
-		<param name="tilt_altitude_D_gain"	value="8.0"/>
+		<param name="tilt_altitude_P_gain"	value="10.0"/> <!-- 13.0 --> 
+		<param name="tilt_altitude_I_gain"	value="5.0"/> <!-- 5.0 -->
+		<param name="tilt_altitude_D_gain"	value="0.0"/> <!-- 8.0 -->
 
 		<!--Tilt Mode Velocity gains-->
 		<param name="tilt_velocity_P_gain"	value="0.9"/>	
@@ -111,9 +117,9 @@
 		<param name="tilt_velocity_D_gain"	value="0.2"/>
 
 		<!--Tilt Mode Position gains-->
-		<param name="tilt_position_P_gain"	value="2.0"/>	
-		<param name="tilt_position_I_gain"	value="0.01"/>	
-		<param name="tilt_position_D_gain"	value="2.0"/>	
+		<param name="tilt_position_P_gain"	value="1.0"/> <!-- 2.0 -->	
+		<param name="tilt_position_I_gain"	value="0.01"/>	<!-- 0.01 -->
+		<param name="tilt_position_D_gain"	value="0.0"/>	<!-- 2.0 -->
 
 		
 		<node name="cad_uav_node"  pkg="FAC_MAV" type="cad_uav" output="screen"/>

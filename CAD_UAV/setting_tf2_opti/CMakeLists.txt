@@ -109,10 +109,11 @@ include_directories(${Eigen_INCLUDE_DIRS})
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES setting_tf2_opti
-#  CATKIN_DEPENDS roscpp tf2 tf2_ros std_msgs message_runtime
-#  DEPENDS system_lib
+  INCLUDE_DIRS include
+  LIBRARIES setting_tf2_opti
+  CATKIN_DEPENDS roscpp tf2 tf2_ros std_msgs message_runtime
+  DEPENDS system_lib
+  DEPENDS Eigen
 )
 
 ###########
@@ -151,6 +152,8 @@ add_executable(setting_drone_tf_opti src/setting_drone_tf_opti.cpp)
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(setting_drone_tf_opti ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(setting_drone_tf_opti

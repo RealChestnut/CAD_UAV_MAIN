@@ -58,7 +58,6 @@ void MAIN_PoseCallback(const geometry_msgs::PoseStamped &msg)
     Eigen::Matrix3d rotationMatrix_body = q_body.matrix();
     
 
-    ROS_INFO(" X ; %lf| Y ; %lf| Z : %lf", msg.pose.position.y, msg.pose.position.z, msg.pose.position.x);
     tf2::Quaternion quat_body(q_body.x(),q_body.y(),q_body.z(),q_body.w());
     tf2::Matrix3x3(quat_body).getRPY(yaw,roll,pitch);
 
@@ -81,7 +80,9 @@ void MAIN_PoseCallback(const geometry_msgs::PoseStamped &msg)
     X_main = msg.pose.position.y;
     Y_main = msg.pose.position.z;
     Z_main = msg.pose.position.x;
-/*    
+/*  
+    yaw각도가 180도가 넘어가면 -180도가 되는 현상을 보정하려고 했는데 실패
+
     base_yaw = yaw;
     if((yaw>0) && (yaw<=PI)) 
     {
@@ -106,6 +107,15 @@ void MAIN_PoseCallback(const geometry_msgs::PoseStamped &msg)
     br.sendTransform(transformStamped); //TF publish 개념
     
 }
+
+double X_sub=0.0;
+double Y_sub=0.0;
+double Z_sub=0.0;
+double Roll_sub=0.0;
+double Pitch_sub=0.0;
+double Yaw_sub=0.0;
+
+void SUB_PoseCallback(const geometry_msgs::PoseStamped &msg)
 {
     double roll, pitch, yaw;
     static tf2_ros::StaticTransformBroadcaster br;
@@ -114,6 +124,31 @@ void MAIN_PoseCallback(const geometry_msgs::PoseStamped &msg)
     transformStamped.header.stamp = ros::Time::now();
     transformStamped.header.frame_id = "drone_world";
     transformStamped.child_frame_id = "tf/SUB_tf";
+
+    tf2::Matrix3x3 new_mat;
+    tf2::Quaternion quat_new;
+
+    tf2::Quaternion quat_pre(msg.pose.orientation.x,msg.pose.orientation.y,msg.pose.orientation.z,msg.pose.orientation.w);
+    tf2::Matrix3x3 pre_mat = tf2::Matrix3x3(quat_pre); // quat_pre를 matrix 3x3에 mapping함
+    pre_mat.getRPY(Roll_main,Pitch_main,Yaw_main);
+    //ROS_INFO("roll ; %lf|pitch ; %lf|yaw : %lf",Roll_main,Pitch_main,Yaw_main);
+
+
+    tf::Quaternion quat;
+    Eigen::AngleAxisd yawAngle_body(Yaw_main, Eigen::Vector3d::UnitZ()); //optitrack 기준 :: yaw --> Y_axis
+    Eigen::AngleAxisd pitchAngle_body(Pitch_main, Eigen::Vector3d::UnitY()); //optitrack 기준 :: pitch --> X axis 
+    Eigen::AngleAxisd rollAngle_body(Roll_main, Eigen::Vector3d::UnitX()); // optitrack 기준 :: roll --> Z axis
+
+    // optitrack 원 데이터는 world를 기준으로 frame 데이터가 들어옴
+    Eigen::Quaternion<double> q_body = pitchAngle_body * yawAngle_body * rollAngle_body; //world to body :: XYZ, body to world  :: ZYX
+    
+    Eigen::Matrix3d rotationMatrix_body = q_body.matrix();
+    
+
+    tf2::Quaternion quat_body(q_body.x(),q_body.y(),q_body.z(),q_body.w());
+    tf2::Matrix3x3(quat_body).getRPY(yaw,roll,pitch);
+
+
     transformStamped.transform.translation.x = msg.pose.position.x;
     transformStamped.transform.translation.y = msg.pose.position.y;
     transformStamped.transform.translation.z = msg.pose.position.z;
@@ -124,15 +159,11 @@ void MAIN_PoseCallback(const geometry_msgs::PoseStamped &msg)
     transformStamped.transform.rotation.z = msg.pose.orientation.z;
     transformStamped.transform.rotation.w = msg.pose.orientation.w;
 
-    X_sub = msg.pose.position.x;
-    Y_sub = msg.pose.position.y;
-    Z_sub = msg.pose.position.z;
+    X_sub = msg.pose.position.y;
+    Y_sub = msg.pose.position.z;
+    Z_sub = msg.pose.position.x;
+   
     
-    tf::Quaternion quat;
-    
-    tf::quaternionMsgToTF(msg.pose.orientation, quat);
-
-    tf::Matrix3x3(quat).getRPY(roll, pitch, yaw);
     Roll_sub = roll;
     Pitch_sub = pitch;
     Yaw_sub = yaw;
@@ -149,31 +180,43 @@ int main(int argc, char **argv){
 
     ros::NodeHandle nh;
     
-    geometry_msgs::Vector3 Trans;
-    geometry_msgs::Vector3 Rot;
+    std_msgs::Float32MultiArray MAIN_pose_pub_;
+    std_msgs::Float32MultiArray SUB_pose_pub_;
+    MAIN_pose_pub_.data.resize(6);
+    SUB_pose_pub_.data.resize(6);
 
 
     ros::Subscriber main_pose_sub_ = nh.subscribe("/MAINagent/world", 1, MAIN_PoseCallback, ros::TransportHints().tcpNoDelay());
+    ros::Subscriber sub_pose_sub_ = nh.subscribe("/SUBagent/world", 1, SUB_PoseCallback,  ros::TransportHints().tcpNoDelay());
 
     
-    ros::Publisher pos=nh.advertise<geometry_msgs::Vector3>("/opti_pos",100);
-    ros::Publisher rot=nh.advertise<geometry_msgs::Vector3>("/opti_rot",100);
+    ros::Publisher MAIN_drone_pose=nh.advertise<std_msgs::Float32MultiArray>("/opti_MAIN_pose",1);
+    ros::Publisher SUB_drone_pose=nh.advertise<std_msgs::Float32MultiArray>("/opti_SUB_pose",1);
 
     ros::Rate loop(250);
 
      while(ros::ok())
     {
     
-        Trans.x=X_main;
-        Trans.y=Y_main;
-        Trans.z=Z_main;
+        MAIN_pose_pub_.data[0]=X_main;
+        MAIN_pose_pub_.data[1]=Y_main;
+        MAIN_pose_pub_.data[2]=Z_main;
 
-        Rot.x=Roll_main;
-        Rot.y=Pitch_main;
-        Rot.z=Yaw_main; 
+        MAIN_pose_pub_.data[3]=Roll_main;
+        MAIN_pose_pub_.data[4]=Pitch_main;
+        MAIN_pose_pub_.data[5]=Yaw_main; 
 
-        pos.publish(Trans);
-        rot.publish(Rot);
+        SUB_pose_pub_.data[0]=X_sub;
+        SUB_pose_pub_.data[1]=Y_sub;
+        SUB_pose_pub_.data[2]=Z_sub;
+
+        SUB_pose_pub_.data[3]=Roll_sub;
+        SUB_pose_pub_.data[4]=Pitch_sub;
+        SUB_pose_pub_.data[5]=Yaw_sub; 
+
+
+        MAIN_drone_pose.publish(MAIN_pose_pub_);
+        SUB_drone_pose.publish(SUB_pose_pub_);
         
         ros::spinOnce();
         loop.sleep();

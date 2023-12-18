@@ -62,12 +62,15 @@ int main(int argc, char **argv)
     battery_checker = nh.subscribe("/battery",100,battery_Callback,ros::TransportHints().tcpNoDelay()); // battery sensor data from arduino
     Switch_checker = nh.subscribe("switch_onoff",1,switch_Callback,ros::TransportHints().tcpNoDelay()); // switch interrupt from arduino
 
-    t265_position=nh.subscribe("/t265_pos",100,t265_position_Callback,ros::TransportHints().tcpNoDelay()); // position data from t265
-    t265_rotation=nh.subscribe("/t265_rot",100,t265_rotation_Callback,ros::TransportHints().tcpNoDelay()); // angle data from t265
+//    t265_position=nh.subscribe("/t265_pos",100,t265_position_Callback,ros::TransportHints().tcpNoDelay()); // position data from t265
+//    t265_rotation=nh.subscribe("/t265_rot",100,t265_rotation_Callback,ros::TransportHints().tcpNoDelay()); // angle data from t265
 
-    t265_odom=nh.subscribe("/rs_t265/odom/sample",100,t265_Odom_Callback,ros::TransportHints().tcpNoDelay()); // odometry data from t265
+//    t265_odom=nh.subscribe("/rs_t265/odom/sample",100,t265_Odom_Callback,ros::TransportHints().tcpNoDelay()); // odometry data from t265
 
     main2sub_data=nh.subscribe("read_serial_magnetic",1,main2sub_data_Callback,ros::TransportHints().tcpNoDelay()); // wrench data subscribe
+
+    main_pose_data=nh.subscribe("opti_MAIN_pose",1,main_pose_data_Callback,ros::TransportHints().tcpNoDelay());
+    sub_pose_data=nh.subscribe("opti_SUB_pose",1,sub_pose_data_Callback,ros::TransportHints().tcpNoDelay());
 
     /////////////////////////////////////////////////PUBLISHER START//////////////////////////////////////////////////////
     PWMs = nh.advertise<std_msgs::Int16MultiArray>("PWMs", 1); // generated PWM data for logging
@@ -100,6 +103,7 @@ int main(int argc, char **argv)
 
     delta_time = nh.advertise<std_msgs::Float32>("delta_t",100);
     ToSubAgent = nh.advertise<std_msgs::String>("ToSubData",1);
+
     
     ros::Timer timerPublish = nh.createTimer(ros::Duration(1.0/200.0),std::bind(publisherSet));
     ros::spin();
@@ -124,6 +128,7 @@ int main(int argc, char **argv)
       attitude_controller();
       if(DOB_mode){torque_DOB();} //나중에는 배터리 교환할때만 ON
       position_controller();
+
       altitude_controller();
 
       Accelerometer_LPF();
