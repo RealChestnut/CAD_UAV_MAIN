@@ -17,7 +17,7 @@
 using namespace std;
 serial::Serial ser;
 
-int topic_num = 3;
+int topic_num = 5;
 string temp_result;
 bool temp_result_on=false;
 string buffer="";
@@ -37,7 +37,7 @@ int serial_open_cnt=0;
 
 
 vector<double> DoubleVec;
-vector<string> last_dump(3);
+vector<string> last_dump(5);
 void receive_data(const string& str);
 void receive_data_test(const string& str);
 void reconfigure_port();
@@ -47,7 +47,7 @@ void serial_open_safety();
 void try_set_port(){
 	ROS_INFO("try_set_port");
 	
-	ser.setPort("/dev/ttyZIGBEE");
+	ser.setPort("/dev/ttyZIG_SERVE2");
         ser.setBaudrate(57600);
         serial::Timeout to = serial::Timeout::simpleTimeout(1000);
 
@@ -59,7 +59,7 @@ int main (int argc, char** argv){
     ros::init(argc, argv, "receive_command_node");
     ros::NodeHandle nh;
 
-    ros::Publisher read_command_from_PC = nh.advertise<std_msgs::Float32MultiArray>("GUI_command", 1);
+    ros::Publisher read_command_from_main = nh.advertise<std_msgs::Float32MultiArray>("read_command_message", 1);
 
 
     try
@@ -67,13 +67,13 @@ int main (int argc, char** argv){
         ser.setPort("/dev/ttyZIGBEE");
         ser.setBaudrate(57600);
         serial::Timeout to = serial::Timeout::simpleTimeout(1000);
-		serial::flowcontrol_t flow_state = serial::flowcontrol_t::flowcontrol_none;
-		ser.setFlowcontrol(flow_state);
+	serial::flowcontrol_t flow_state = serial::flowcontrol_t::flowcontrol_none;
+	ser.setFlowcontrol(flow_state);
 
 
-		ser.setTimeout(to);
-		ser.open();
-		ser.flush(); //데이터가 먼저 cpu queue에 maximum으로 들어와있어서 포트가 터지는거 방지용
+	ser.setTimeout(to);
+	ser.open();
+	ser.flush(); //데이터가 먼저 cpu queue에 maximum으로 들어와있어서 포트가 터지는거 방지용
     }
     catch (serial::IOException& e)
     {
@@ -90,15 +90,16 @@ int main (int argc, char** argv){
     ros::Rate loop_rate(200);
     while(ros::ok()){
 
-    ros::spinOnce();
+        ros::spinOnce();
 
-	//if(!ser.available()){buffer.clear();
-	//ser.flush();}
+	buffer.clear();
+	ser.flush();
 
 
 	    //To avoid undefined data for software blocking safety
             //reconfigure_port();
-	    if(ser.available()){buffer= ser.read(ser.available());
+	    serial_open_safety();
+	    if(ser.available()){buffer= ser.read(ser.available());}
 		
 	    //ROS_INFO_STREAM(buffer);
 
@@ -109,25 +110,25 @@ int main (int argc, char** argv){
     	result.data.resize(topic_num);
 	    
 	    receive_data(buffer);
-	    //ROS_INFO_STREAM(last_dump.size());
+	     ROS_INFO_STREAM(last_dump.size());
 	 ////////////// parsing from complete data to std_msgs   /////////////////////
 	    
 		if(last_dump.size()==topic_num){
 		
 			string dumi="";
-			//ROS_INFO_STREAM(last_dump.size());
+			ROS_INFO_STREAM(last_dump.size());
 			for(int i =0;i<last_dump.size();i++)
 			{
 				dumi = last_dump.at(i);
-				//ROS_INFO_STREAM("IM_DUMI :: " << dumi);
-				result.data[i]=strtof(dumi.c_str(),nullptr); // error code last dump의 크기보다 receive_data의 크기가 작아 발생한 애러
+				ROS_INFO_STREAM("IM_DUMI :: " << dumi);
+				//result.data[i]=strtof(dumi.c_str(),nullptr); // error code last dump의 크기보다 receive_data의 크기가 작아 발생한 애러
+				ROS_INFO_STREAM(last_dump[i]);
 				
 			}
-			read_command_from_PC.publish(result);
+			read_command_from_main.publish(result);
 		}
 	/////////////////////////////////////////////////////////////////////// 		
 	    last_dump.clear();
-		}
 
 	loop_rate.sleep();
 	}
@@ -147,10 +148,10 @@ void parseData(const string& str, vector<string>& values,string& delimiter){
 	string msg;
 	msg.assign(str);
 	
-	if((msg.find('<')!=string::npos) && (msg.find('>')!=string::npos))
+	if((msg.find('<')!=string::npos) && (msg.find('|')!=string::npos))
 	{
 		msg.erase(std::find(msg.begin(),msg.end(),'<'));
-		msg.erase(std::find(msg.begin(),msg.end(),'>'));
+		msg.erase(std::find(msg.begin(),msg.end(),'|'));
 	}
 
 		
@@ -232,7 +233,7 @@ void receive_data(const string& str){
 	    bool start_flag=false;
 	    while(i<str.size())
 	    {
-		    if((str[i] == '>' ) && temp_2.empty())
+		    if((str[i] == '>' ) && (str[i] == '|' )&& temp_2.empty())
 		    {
 			    temp_1=str;
 			    temp_1.clear();
@@ -246,12 +247,12 @@ void receive_data(const string& str){
 		    if(temp_2_on)
 		    {
 			    temp_2.push_back(str[i]);
-			    if(str[i]=='>')
+			    if(str[i]=='|')
 			    {
 				    cnt_start++;
 				    parseData(temp_2,last_dump ,dot);
 			   	    cnt_end++;
-				    ROS_INFO_STREAM(temp_2);
+				    //ROS_INFO_STREAM(temp_2);
 				    temp_2.clear();
 				    temp_2_on=false;
 
@@ -264,3 +265,4 @@ void receive_data(const string& str){
 
 
 }
+

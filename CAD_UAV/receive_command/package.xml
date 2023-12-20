@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>receive_command</name>
+  <name>receive_command_GUI</name>
   <version>0.0.0</version>
   <description>The receive_command package</description>
 

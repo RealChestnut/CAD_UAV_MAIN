@@ -6,9 +6,9 @@
 
  <include file="$(find optitrack)/launch/optitrack.launch">
  </include>
-
  <node pkg="setting_tf2_opti" type="setting_drone_tf_opti" name="setting_drone_tf_node"/>
 
+<?ignore
   <!-- Dynamixel Workbench Controller -->
   <include file="$(find dynamixel_workbench_controllers)/launch/position_control.launch">
         <arg name="device_name"        		default="/dev/ttyU2D2"/>
@@ -20,6 +20,7 @@
 	<arg name="position_d_gain"		default="300"/>
 	<arg name="scan_range"                  default="33"/>
     </include> 
+?>
 	<!-- ros_mscl -->
     <include file="$(find microstrain_inertial_driver)/launch/microstrain.launch">
 <!-- 	<arg name="params_file"            default = "" /> -->
@@ -124,7 +125,7 @@
 		
 		<node name="cad_uav_node"  pkg="FAC_MAV" type="cad_uav" output="screen"/>
         	<node pkg="serial_module" type="serial_magnetic_node" name="serial_magnetic_module"/>
-
+		<node pkg="receive_command_GUI" type="receive_command_GUI_node" name="receive_command_GUI"/>
 		<node pkg="data_logging" name="data_logging_node" type="data_logging"/>
 	
     

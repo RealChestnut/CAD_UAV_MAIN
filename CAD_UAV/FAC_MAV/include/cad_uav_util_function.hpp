@@ -43,12 +43,16 @@ std_msgs::Int16MultiArray PWMs_cmd;
 std_msgs::Int32MultiArray PWMs_val;
 
 double pwm_freq=406.5;//pwm signal frequency main :: 406.5  || sub :: 408.6
-
+double pwm_freq_servo=406.5;
 int32_t pwmMapping(double pwm){
 	return (int32_t)(65535.*pwm/(1./pwm_freq*1000000.));
 }
 
-void pwm_Command(double pwm1, double pwm2, double pwm3, double pwm4){
+int32_t pwmMapping_servo(double pwm){
+        return (int32_t)(65535.*pwm/(1./pwm_freq_servo*1000000.));
+}
+
+void pwm_Command(double pwm1, double pwm2, double pwm3, double pwm4,double pwm_servo1,double pwm_servo2){
 	PWMs_cmd.data.resize(4);
 	PWMs_cmd.data[0] = pwm1;
 	PWMs_cmd.data[1] = pwm2;
@@ -59,9 +63,9 @@ void pwm_Command(double pwm1, double pwm2, double pwm3, double pwm4){
 	PWMs_val.data[1] = pwmMapping(pwm2);
 	PWMs_val.data[2] = pwmMapping(pwm3);
 	PWMs_val.data[3] = pwmMapping(pwm4);
-	PWMs_val.data[4] = -1;
-	PWMs_val.data[5] = -1;
-	PWMs_val.data[6] = -1;
+	PWMs_val.data[4] = pwmMapping_servo(pwm_servo1);
+	PWMs_val.data[5] = pwmMapping_servo(pwm_servo2);
+	PWMs_val.data[6] = 100;
 	PWMs_val.data[7] = -1;
 	PWMs_val.data[8] = -1;
 	PWMs_val.data[9] = -1;

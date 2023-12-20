@@ -382,6 +382,7 @@ int button_limit=10; // button count limit
 int cnt_switching=0; // mono -> combined || combined -> mono :: for distinguish
 double time_switching=0; // 
 int time_limit_switching=2; // 
+int servo_angle=0;
 
 void shape_detector()
 {
@@ -408,15 +409,20 @@ void shape_detector()
   if(button_cnt==button_limit){// we define that this state is combined
 	  mono_flight = false;
   	  module_num=2;
+	  
+	  servo_angle=map<int16_t>(90,0,180, 1000, 2000);//70 :: main 왼쪽위 기준
+
 	  //ROS_INFO("COMBINED!!!!!!!!!!!");
   	  //main_agent=false; for sub drone
 	  } 
   else{ // we define that this state is disassembled
   	  mono_flight = true;
   	  module_num=1;
+	  servo_angle=map<int16_t>(0,0,180, 1000, 2000);//150 :: main 왼쪽위
 	  //ROS_INFO("MONO_FLIGHT!!!!!!!!!");
   	  //main_agent=true; for sub drone
 	  }
+  //ROS_INFO_STREAM(servo_angle);
   //mono_flight=true;
   //module_num=1;
 
@@ -1339,7 +1345,7 @@ void PWM_signal_Generator()
   
   
   //pwm_Kill();
-  pwm_Command(Force_to_PWM(F1),Force_to_PWM(F2), Force_to_PWM(F3), Force_to_PWM(F4));
+  pwm_Command(Force_to_PWM(F1),Force_to_PWM(F2), Force_to_PWM(F3), Force_to_PWM(F4),servo_angle,servo_angle);
   Force_prop.data[0]=F1;
   Force_prop.data[1]=F2;
   Force_prop.data[2]=F3;
@@ -1689,7 +1695,7 @@ void main_pose_data_Callback(const std_msgs::Float32MultiArray& msg){
   	lin_vel_LPF(2)=lin_vel_cut_off_freq*x_z;
 
 			
-	ROS_INFO_STREAM(lin_vel_opti.x);
+	//ROS_INFO_STREAM(lin_vel_opti.x);
 
 	// global axis :: linear velocity
     lin_vel.x=lin_vel_LPF(0);//lin_vel_opti.x;
