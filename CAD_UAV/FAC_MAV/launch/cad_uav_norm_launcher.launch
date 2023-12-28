@@ -1,12 +1,13 @@
 <launch>
-   <?ignore 
+
     <include file="$(find setting_tf2)/launch/tf2_setting.launch">
  </include>
-?>
 
- <include file="$(find optitrack)/launch/optitrack.launch">
+
+    <include file="$(find optitrack)/launch/optitrack.launch">
  </include>
- <node pkg="setting_tf2_opti" type="setting_drone_tf_opti" name="setting_drone_tf_node"/>
+
+ <node pkg="setting_tf2_opti" type="setting_drone_tf_opti" name="setting_drone_tf_opti_node"/>
 
 <?ignore
   <!-- Dynamixel Workbench Controller -->
@@ -21,6 +22,7 @@
 	<arg name="scan_range"                  default="33"/>
     </include> 
 ?>
+
 	<!-- ros_mscl -->
     <include file="$(find microstrain_inertial_driver)/launch/microstrain.launch">
 <!-- 	<arg name="params_file"            default = "" /> -->
@@ -42,8 +44,8 @@
 
    <!-- t265 -->
     <include file="$(find realsense2_camera)/launch/rs_t265.launch">
-    </include> 
-   
+    </include>
+ 
     <!-- rosserial_arduino -->
     <node pkg="rosserial_arduino" type="serial_node.py" name="ros_arduino_PWMs" >
 	<param name="port" value="/dev/ttyARDUINO"/>
@@ -108,9 +110,9 @@
 
 
 		<!--Tilt Mode Altitude gains-->
-		<param name="tilt_altitude_P_gain"	value="10.0"/> <!-- 13.0 --> 
+		<param name="tilt_altitude_P_gain"	value="13.0"/> <!-- 13.0 --> 
 		<param name="tilt_altitude_I_gain"	value="5.0"/> <!-- 5.0 -->
-		<param name="tilt_altitude_D_gain"	value="0.0"/> <!-- 8.0 -->
+		<param name="tilt_altitude_D_gain"	value="8.0"/> <!-- 8.0 -->
 
 		<!--Tilt Mode Velocity gains-->
 		<param name="tilt_velocity_P_gain"	value="0.9"/>	
@@ -118,9 +120,9 @@
 		<param name="tilt_velocity_D_gain"	value="0.2"/>
 
 		<!--Tilt Mode Position gains-->
-		<param name="tilt_position_P_gain"	value="1.0"/> <!-- 2.0 -->	
+		<param name="tilt_position_P_gain"	value="2.0"/> <!-- 2.0 -->	
 		<param name="tilt_position_I_gain"	value="0.01"/>	<!-- 0.01 -->
-		<param name="tilt_position_D_gain"	value="0.0"/>	<!-- 2.0 -->
+		<param name="tilt_position_D_gain"	value="2.0"/>	<!-- 2.0 -->
 
 		
 		<node name="cad_uav_node"  pkg="FAC_MAV" type="cad_uav" output="screen"/>

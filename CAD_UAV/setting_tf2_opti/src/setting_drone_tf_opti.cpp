@@ -30,6 +30,7 @@ void MAIN_PoseCallback(const geometry_msgs::PoseStamped &msg)
 {  
 
     double roll, pitch, yaw;
+    double roll_pre,pitch_pre,yaw_pre;
     static tf2_ros::StaticTransformBroadcaster br;
     geometry_msgs::TransformStamped transformStamped;
 
@@ -104,6 +105,11 @@ void MAIN_PoseCallback(const geometry_msgs::PoseStamped &msg)
     Pitch_main = pitch;
     Yaw_main = yaw;//yaw_now;
 
+    ROS_INFO_STREAM(Roll_main);
+    ROS_INFO_STREAM(Pitch_main);
+    ROS_INFO_STREAM(Yaw_main);
+
+
     br.sendTransform(transformStamped); //TF publish 개념
     
 }
@@ -130,14 +136,15 @@ void SUB_PoseCallback(const geometry_msgs::PoseStamped &msg)
 
     tf2::Quaternion quat_pre(msg.pose.orientation.x,msg.pose.orientation.y,msg.pose.orientation.z,msg.pose.orientation.w);
     tf2::Matrix3x3 pre_mat = tf2::Matrix3x3(quat_pre); // quat_pre를 matrix 3x3에 mapping함
-    pre_mat.getRPY(Roll_main,Pitch_main,Yaw_main);
+    pre_mat.getRPY(Roll_sub,Pitch_sub,Yaw_sub);
+
     //ROS_INFO("roll ; %lf|pitch ; %lf|yaw : %lf",Roll_main,Pitch_main,Yaw_main);
 
 
     tf::Quaternion quat;
-    Eigen::AngleAxisd yawAngle_body(Yaw_main, Eigen::Vector3d::UnitZ()); //optitrack 기준 :: yaw --> Y_axis
-    Eigen::AngleAxisd pitchAngle_body(Pitch_main, Eigen::Vector3d::UnitY()); //optitrack 기준 :: pitch --> X axis 
-    Eigen::AngleAxisd rollAngle_body(Roll_main, Eigen::Vector3d::UnitX()); // optitrack 기준 :: roll --> Z axis
+    Eigen::AngleAxisd yawAngle_body(Yaw_sub, Eigen::Vector3d::UnitZ()); //optitrack 기준 :: yaw --> Y_axis
+    Eigen::AngleAxisd pitchAngle_body(Pitch_sub, Eigen::Vector3d::UnitY()); //optitrack 기준 :: pitch --> X axis 
+    Eigen::AngleAxisd rollAngle_body(Roll_sub, Eigen::Vector3d::UnitX()); // optitrack 기준 :: roll --> Z axis
 
     // optitrack 원 데이터는 world를 기준으로 frame 데이터가 들어옴
     Eigen::Quaternion<double> q_body = pitchAngle_body * yawAngle_body * rollAngle_body; //world to body :: XYZ, body to world  :: ZYX
@@ -149,9 +156,9 @@ void SUB_PoseCallback(const geometry_msgs::PoseStamped &msg)
     tf2::Matrix3x3(quat_body).getRPY(yaw,roll,pitch);
 
 
-    transformStamped.transform.translation.x = msg.pose.position.x;
-    transformStamped.transform.translation.y = msg.pose.position.y;
-    transformStamped.transform.translation.z = msg.pose.position.z;
+    transformStamped.transform.translation.x = msg.pose.position.y;
+    transformStamped.transform.translation.y = msg.pose.position.z;
+    transformStamped.transform.translation.z = msg.pose.position.x;
 
     
     transformStamped.transform.rotation.x = msg.pose.orientation.x;
