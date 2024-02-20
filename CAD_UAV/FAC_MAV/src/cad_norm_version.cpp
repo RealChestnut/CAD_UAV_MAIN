@@ -54,6 +54,16 @@ int main(int argc, char **argv)
 
   //initialize ros node//
   //initSubscriber();
+  //
+    //Kalman initialization-------------------------------------
+		x << 0, 0, 0, 0, 0, 0;
+		P << Eigen::MatrixXd::Identity(6,6);
+		F << Eigen::MatrixXd::Identity(3,3), 0.005*Eigen::MatrixXd::Identity(3,3),
+		     Eigen::MatrixXd::Zero(3,3), Eigen::MatrixXd::Identity(3,3);
+		H << Eigen::MatrixXd::Identity(3,3), Eigen::MatrixXd::Zero(3,3);
+		Q << Eigen::MatrixXd::Identity(3,3), Eigen::MatrixXd::Zero(3,3),
+		     Eigen::MatrixXd::Zero(3,3), 2500.*Eigen::MatrixXd::Identity(3,3);
+		R << 0.005*Eigen::MatrixXd::Identity(3,3);
 
     /////////////////////////////////////////////////SUBSCFRIBER START//////////////////////////////////////////////////////
     dynamixel_state = nh.subscribe("joint_states",1,jointstate_Callback, ros::TransportHints().tcpNoDelay()); // servo angle data from dynamixel
@@ -72,6 +82,7 @@ int main(int argc, char **argv)
     main_pose_data = nh.subscribe("opti_MAIN_pose",1,main_pose_data_Callback,ros::TransportHints().tcpNoDelay());
     sub_pose_data = nh.subscribe("opti_SUB_pose",1,sub_pose_data_Callback,ros::TransportHints().tcpNoDelay());
     sub_zigbee_command = nh.subscribe("GUI_command",1,zigbee_command_Callback,ros::TransportHints().tcpNoDelay());
+    serial_safety_from_sub = nh.subscribe("serial_safety_from_sub",1,serial_safety_msg_Callback,ros::TransportHints().tcpNoDelay());
     /////////////////////////////////////////////////PUBLISHER START//////////////////////////////////////////////////////
     PWMs = nh.advertise<std_msgs::Int16MultiArray>("PWMs", 1); // generated PWM data for logging
     PWM_generator = nh.advertise<std_msgs::Int32MultiArray>("command",1);  // generated PWM data for publish to pca9685
@@ -89,6 +100,7 @@ int main(int argc, char **argv)
 
     linear_velocity = nh.advertise<geometry_msgs::Vector3>("lin_vel",1);
     desired_velocity = nh.advertise<geometry_msgs::Vector3>("lin_vel_d",1);
+    linear_velocity_opti = nh.advertise<geometry_msgs::Vector3>("lin_vel_opti",1);
 
     angular_velocity = nh.advertise<geometry_msgs::Vector3>("ang_vel",1);
 
@@ -111,8 +123,7 @@ int main(int argc, char **argv)
 }
  void publisherSet(){
     Clock();
-
-
+ 
     shape_detector(); 
     // receiving data from arduino. (switch on off, connector servo rotation)
     // (swiching safety function +++)
@@ -144,9 +155,10 @@ int main(int argc, char **argv)
       else
       {
         
-	      wrench_allocation();  //contain data_2_sub fucntion
+	wrench_allocation();  //contain data_2_sub fucntion
         reset_data();
-        pwm_Kill();
+	Switching_safety();
+        pwm_Kill(servo_angle,servo_angle);
         
       }
     }
@@ -160,7 +172,7 @@ int main(int argc, char **argv)
         }   
       else{
         reset_data();
-        pwm_Kill();
+        pwm_Kill(servo_angle,servo_angle);
         } 
     }
 

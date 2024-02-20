@@ -24,6 +24,9 @@
 #include <std_msgs/Empty.h>
 #include <std_msgs/Float32.h>
 #include <std_msgs/UInt16.h>
+#include <std_msgs/Bool.h>
+#include <std_msgs/Float32MultiArray.h>
+
 #include <sys/ioctl.h>
 
 using namespace std;
@@ -54,19 +57,50 @@ int switch_data;
 void switch_data_callback(const std_msgs::UInt16::ConstPtr& msg){
     switch_data = msg->data;
 }
+bool is_Appr=false;
+bool is_Dock=false;
+bool is_Mani=false;
+void zigbee_command_Callback(const std_msgs::Float32MultiArray& msg){
 
-int cnt=0;
-int time_cnt=0;
-int cnt_mean=0;
-bool switch_toggle=false;
-void debouncing()
+        is_Appr=msg.data[0]; // approching process
+        is_Dock=msg.data[1]; // docking process
+        is_Mani=msg.data[2]; // battery switching process
+                             // if all false? --> sbus command flight
+                             // if Dock mode && after commbined :: flight w.r.t. main drone
+}
+
+
+//시리얼 모듈이 잘 연결되어 있는지 확인하기 위한 함수
+ 
+bool init_serial = true;
+bool safety_msg = false;
+std_msgs::Bool safety_msg_;
+int safety_cnt = 0;
+int dumi_cnt =0;
+
+void serial_check()
 {
-  time_cnt++;
-  cnt_mean+=switch_data;
-  if(time_cnt==50){
-	  if(cnt_mean>=25){switch_toggle=false; cnt_mean=0;time_cnt=0; ROS_INFO("OFF");}
-	  else {switch_toggle=true;cnt_mean=0; time_cnt=0;ROS_INFO("ON");}
-  }
+        
+	int safety_cnt_pass=2; // 시리얼 모듈의 연결이 됐음을 나타내는 count의 pass count 기준 
+	string dumi = ""; // safety msg의 response를 담는 dumi변수
+        if(!switch_data && init_serial && is_Dock)// 스위치가 눌리고 && 스위치가 처음 눌린 경우
+        {
+                ser.write("ABCD"); // 시리얼 모듈을 통해 통신이 잘되는지 확인하기 위한 request문자발송
+                dumi = ser.read(ser.available());//dumi에 receive message 수신
+		ROS_INFO_STREAM(dumi);
+                if((dumi.find("ABCD")!=string::npos)){safety_cnt++;} //dumi에 CD가 포함되어 있다면 연결성을 확인하기 위한 count++
+		
+		if((safety_cnt >= safety_cnt_pass))
+		{	//연결성을 확인하기 위한 count가 pass기준이상으로 들어올 경우 안전하게 연결됐다고 판단 saftey_msg = true로 변경, 나중에 새로운 도킹을 위한 init_serial은 false로 변경
+		
+			ROS_INFO("START");
+			ser.write("STARTSTART"); safety_msg = true; init_serial=false; safety_cnt=0;
+		}
+		
+
+        }
+	
+	safety_msg_.data = safety_msg; //topic을 통해 계속해서 데이터를 전송한다. 빠른 response를위함
 
 }
 
@@ -75,9 +109,10 @@ int main (int argc, char** argv){
     ros::init(argc, argv, "serial_node_main");
     ros::NodeHandle nh;
     
-    ros::Subscriber push_data_sub = nh.subscribe("ToSubData",1,push_data_callback);
+    ros::Subscriber push_data_sub = nh.subscribe("ToSubData",1,push_data_callback,ros::TransportHints().tcpNoDelay());
     ros::Subscriber switch_data_sub = nh.subscribe("switch_onoff",1,switch_data_callback,ros::TransportHints().tcpNoDelay());
-    ros::Publisher read_from_sub = nh.advertise<std_msgs::String>("read_from_sub", 1);
+    ros::Subscriber sub_zigbee_command = nh.subscribe("GUI_command",1,zigbee_command_Callback,ros::TransportHints().tcpNoDelay());
+    ros::Publisher  serial_safety_from_sub = nh.advertise<std_msgs::Bool>("serial_safety_from_sub", 1);
 
     
 
@@ -105,28 +140,32 @@ int main (int argc, char** argv){
     }
     
     ros::Rate loop_rate(200);
-
+    
     bool reopen_flag=false; 
     while(ros::ok()){
          
         ros::spinOnce();
-	debouncing(); //for debouncing count
 
 	//write data-------------------------------//
 
         //ROS_INFO_STREAM("subscribe : " <<push_data.data);
-	if(ser.available()){
-		message_safety=ser.read();
-		ROS_INFO_STREAM("receive   : " << message_safety);}
 		
-	ROS_INFO_STREAM(push_data.data);
+        //ser.write(push_data.data);	
+	//string meaning_less = "test";
+	serial_check();
 	
-	//if(!switch_data){if(!push_data.data.empty()){ser.write(push_data.data);}}
-	ser.write(push_data.data);
-	if(switch_data){ser.flush();}
-	if(time_cnt=200){time_cnt=0;cnt=0;}
+	if(safety_msg ==true)
+	{	
+		ser.write(push_data.data);
+	}
+	
+	
+	
+	if(switch_data || !is_Dock){ser.flush(); init_serial=true; safety_msg = false; safety_cnt=0;}
+	serial_safety_from_sub.publish(safety_msg_);
 
         //----------------------------------------//
+	
 	
 
 

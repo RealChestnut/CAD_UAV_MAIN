@@ -22,6 +22,7 @@
 #include <std_msgs/Float64MultiArray.h>
 #include <std_msgs/Float64.h>
 #include <std_msgs/UInt16.h>
+#include <std_msgs/Bool.h>
 
 #include <geometry_msgs/TransformStamped.h>
 #include <geometry_msgs/Transform.h>
@@ -65,7 +66,7 @@ void pwm_Command(double pwm1, double pwm2, double pwm3, double pwm4,double pwm_s
 	PWMs_val.data[3] = pwmMapping(pwm4);
 	PWMs_val.data[4] = pwmMapping_servo(pwm_servo1);
 	PWMs_val.data[5] = pwmMapping_servo(pwm_servo2);
-	PWMs_val.data[6] = 100;
+	PWMs_val.data[6] = -1;
 	PWMs_val.data[7] = -1;
 	PWMs_val.data[8] = -1;
 	PWMs_val.data[9] = -1;
@@ -98,7 +99,7 @@ void pwm_Max(){
 	PWMs_val.data[15] = -1;
 }
 
-void pwm_Kill(){
+void pwm_Kill(double pwm_servo1, double pwm_servo2){
 	PWMs_cmd.data.resize(4);
 	PWMs_cmd.data[0] = 1000;
 	PWMs_cmd.data[1] = 1000;
@@ -109,8 +110,8 @@ void pwm_Kill(){
 	PWMs_val.data[1] = pwmMapping(1000.);
 	PWMs_val.data[2] = pwmMapping(1000.);
 	PWMs_val.data[3] = pwmMapping(1000.);
-	PWMs_val.data[4] = -1;
-	PWMs_val.data[5] = -1;
+	PWMs_val.data[4] = -1;//pwmMapping(pwm_servo1);
+	PWMs_val.data[5] = -1;//pwmMapping(pwm_servo2);
 	PWMs_val.data[6] = -1;
 	PWMs_val.data[7] = -1;
 	PWMs_val.data[8] = -1;
@@ -123,18 +124,31 @@ void pwm_Kill(){
 	PWMs_val.data[15] = -1;
 
 }
-
+double pwm_cnt=0;
+bool cnt_flag=true;
 void pwm_Arm(){
+	
+	
+	if((pwm_cnt!=100)&&cnt_flag){
+		pwm_cnt++;
+	if(pwm_cnt==100){cnt_flag=false;}
+	}
+
+	if(cnt_flag==false){pwm_cnt--;
+	if(pwm_cnt==0){cnt_flag=true;}
+	}
+	ROS_INFO_STREAM(pwm_cnt);
+
 	PWMs_cmd.data.resize(4);
-	PWMs_cmd.data[0] = 1500;
-	PWMs_cmd.data[1] = 1500;
-	PWMs_cmd.data[2] = 1500;
-	PWMs_cmd.data[3] = 1500;
+	PWMs_cmd.data[0] = 1200;
+	PWMs_cmd.data[1] = 1200;
+	PWMs_cmd.data[2] = 1200;
+	PWMs_cmd.data[3] = 1200+pwm_cnt;
 	PWMs_val.data.resize(16);
-	PWMs_val.data[0] = pwmMapping(1500.);
-	PWMs_val.data[1] = pwmMapping(1500.);
-	PWMs_val.data[2] = pwmMapping(1500.);
-	PWMs_val.data[3] = pwmMapping(1500.);
+	PWMs_val.data[0] = pwmMapping(1300.+pwm_cnt);
+	PWMs_val.data[1] = pwmMapping(1300.+pwm_cnt);
+	PWMs_val.data[2] = pwmMapping(1300.+pwm_cnt);
+	PWMs_val.data[3] = pwmMapping(1300.+pwm_cnt);
 	PWMs_val.data[4] = -1;
 	PWMs_val.data[5] = -1;
 	PWMs_val.data[6] = -1;

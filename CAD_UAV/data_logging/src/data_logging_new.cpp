@@ -38,6 +38,7 @@ geometry_msgs::Vector3 desired_position;
 geometry_msgs::Vector3 attitude;
 geometry_msgs::Vector3 desired_attitude;
 geometry_msgs::Vector3 linear_velocity;
+geometry_msgs::Vector3 linear_velocity_opti;
 geometry_msgs::Vector3 desired_linear_velocity;
 geometry_msgs::Vector3 angular_velocity;
 geometry_msgs::Vector3 desired_force;
@@ -86,7 +87,8 @@ void sbus_callback(const std_msgs::Int16MultiArray::ConstPtr& msg);
 void Force_allocation_factor_callback(const std_msgs::Float32MultiArray::ConstPtr& msg);
 void Desired_torque_y_split_callback(const std_msgs::Float32MultiArray::ConstPtr& msg);
 void torque_DOB_callback(const geometry_msgs::Vector3& msg);
-
+void angular_velocity_callback(const geometry_msgs::Vector3& msg);
+void linear_velocity_opti_callback(const geometry_msgs::Vector3& msg);
 
 void publisherSet();
 
@@ -98,6 +100,8 @@ int main(int argc, char **argv)
 	ros::NodeHandle nh;
 	ros::Subscriber attitude_log=nh.subscribe("angle",1,attitude_callback,ros::TransportHints().tcpNoDelay());
 	ros::Subscriber desired_attitude_log=nh.subscribe("desired_angle",1,desired_attitude_callback,ros::TransportHints().tcpNoDelay());
+
+	ros::Subscriber angular_velocity_log =nh.subscribe("ang_vel",1,angular_velocity_callback,ros::TransportHints().tcpNoDelay());
 	ros::Subscriber position_log=nh.subscribe("position",1,pos_callback,ros::TransportHints().tcpNoDelay());
 	ros::Subscriber desired_position_log=nh.subscribe("position_d",1,desired_pos_callback,ros::TransportHints().tcpNoDelay());
 	ros::Subscriber servo_angle_log=nh.subscribe("joint_states",1,servo_angle_callback,ros::TransportHints().tcpNoDelay());
@@ -110,6 +114,7 @@ int main(int argc, char **argv)
 	ros::Subscriber delta_t_log=nh.subscribe("delta_t",1,sampling_time_callback,ros::TransportHints().tcpNoDelay());
 	ros::Subscriber battery_voltage_log=nh.subscribe("battery_voltage",1,battery_voltage_callback,ros::TransportHints().tcpNoDelay());
 	ros::Subscriber linear_velocity_log=nh.subscribe("lin_vel",1,linear_velocity_callback,ros::TransportHints().tcpNoDelay());
+	ros::Subscriber linear_velocity_opti_log=nh.subscribe("lin_vel_opti",1,linear_velocity_opti_callback,ros::TransportHints().tcpNoDelay());
 	ros::Subscriber desired_linear_velocity_log=nh.subscribe("lin_vel_d",1,desired_linear_velocity_callback,ros::TransportHints().tcpNoDelay());
 	ros::Subscriber Center_of_Mass_log=nh.subscribe("Center_of_Mass",1,center_of_mass_callback,ros::TransportHints().tcpNoDelay());
 
@@ -126,7 +131,7 @@ int main(int argc, char **argv)
 
 void publisherSet()
 {
-	data_log.data.resize(71);
+	data_log.data.resize(77);
 
 	data_log.data[0]=attitude.x;
 	data_log.data[1]=attitude.y;
@@ -183,23 +188,29 @@ void publisherSet()
 	data_log.data[52]=desired_linear_velocity.x;
 	data_log.data[53]=desired_linear_velocity.y;
 	data_log.data[54]=desired_linear_velocity.z;
-	data_log.data[55]=center_of_mass.x;
-	data_log.data[56]=center_of_mass.y;
-	data_log.data[57]=center_of_mass.z;
-	data_log.data[58]=bias_gradient.x;
-	data_log.data[59]=bias_gradient.y;
-	data_log.data[60]=bias_gradient.z;
-	data_log.data[61]=filtered_bias_gradient.x;
-	data_log.data[62]=filtered_bias_gradient.y;
-	data_log.data[63]=filtered_bias_gradient.z;
-	data_log.data[64]=FORCE_allocation_factor[0];
-	data_log.data[65]=FORCE_allocation_factor[1];
-	data_log.data[66]=desired_torque_y_split[0];
-	data_log.data[67]=desired_torque_y_split[1];
+	data_log.data[55]=angular_velocity.x;
+	data_log.data[56]=angular_velocity.y;
+	data_log.data[57]=angular_velocity.z;
+	data_log.data[58]=center_of_mass.x;
+	data_log.data[59]=center_of_mass.y;
+	data_log.data[60]=center_of_mass.z;
+	data_log.data[61]=bias_gradient.x;
+	data_log.data[62]=bias_gradient.y;
+	data_log.data[63]=bias_gradient.z;
+	data_log.data[64]=filtered_bias_gradient.x;
+	data_log.data[65]=filtered_bias_gradient.y;
+	data_log.data[66]=filtered_bias_gradient.z;
+	data_log.data[67]=FORCE_allocation_factor[0];
+	data_log.data[68]=FORCE_allocation_factor[1];
+	data_log.data[69]=desired_torque_y_split[0];
+	data_log.data[70]=desired_torque_y_split[1];
 	
-	data_log.data[68]=torque_dob.x;
-	data_log.data[69]=torque_dob.y;
-	data_log.data[70]=torque_dob.z;
+	data_log.data[71]=torque_dob.x;
+	data_log.data[72]=torque_dob.y;
+	data_log.data[73]=torque_dob.z;
+	data_log.data[74]=linear_velocity_opti.x;
+	data_log.data[75]=linear_velocity_opti.y;
+	data_log.data[76]=linear_velocity_opti.z;
 	
 	data_log_publisher.publish(data_log);
 }
@@ -321,8 +332,23 @@ void Desired_torque_y_split_callback(const std_msgs::Float32MultiArray::ConstPtr
 	desired_torque_y_split[1]=msg->data[1];
 }
 void torque_DOB_callback(const geometry_msgs::Vector3& msg){
-
 	torque_dob.x = msg.x;
 	torque_dob.y = msg.y;
 	torque_dob.z = msg.z;
+}
+
+void angular_velocity_callback(const geometry_msgs::Vector3& msg){
+	angular_velocity.x = msg.x;
+	angular_velocity.y = msg.y;
+	angular_velocity.z = msg.z;
+
+}
+
+void linear_velocity_opti_callback(const geometry_msgs::Vector3& msg){
+	linear_velocity_opti.x = msg.x;
+	linear_velocity_opti.y = msg.y;
+	linear_velocity_opti.z = msg.z;
+
+
+
 }

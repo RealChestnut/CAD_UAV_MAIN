@@ -85,7 +85,8 @@ ros::Publisher message("switch_onoff", &isdock);
 //-----------------------------------------------------------------------
 
 // Servo Switch =========================================================
-#define btn A7
+#define btn  A7
+#define btn2 A6
 
 uint8_t sbus_data[25] = {0x0f, 0x01, 0x04, 0x20, 0x00, 0xff, 0x07, 0x40, 0x00, 0x02, 0x10, 0x80, 0x2c, 0x64, 0x21, 0x0b, 0x59, 0x08, 0x40, 0x00, 0x02, 0x10, 0x80, 0x00, 0x00};
 int16_t channels[18]  = {1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 0, 0};
@@ -193,7 +194,9 @@ void setup() {
   Serial1.begin(100000, SERIAL_8E2);
   pinMode(BATTERY_V_PIN, INPUT);
   pinMode(btn, INPUT);
+  pinMode(btn2, INPUT);
   digitalWrite(btn, HIGH);
+  digitalWrite(btn2, HIGH);
   //  servo1.attach(A0); // attach(signal line num)
   //  servo2.attach(A1);
 
@@ -226,7 +229,7 @@ void loop() {
   sbus_msg.data[8] = channel(10);
   sbus_msg.data[9] = channel(13);
 
-  if (digitalRead(btn) == LOW)
+  if ((digitalRead(btn) == LOW) && (digitalRead(btn2) == LOW))
   {
     isdock.data = 0;
     //    button_cnt--;

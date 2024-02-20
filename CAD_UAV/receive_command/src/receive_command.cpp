@@ -3,6 +3,8 @@
 #include <serial/serial.h>
 #include <std_msgs/String.h>
 #include <std_msgs/Empty.h>
+#include <std_msgs/Bool.h>
+#include <std_msgs/UInt16.h>
 #include <string.h>
 #include <string>
 #include <vector>
@@ -55,11 +57,28 @@ void try_set_port(){
         ser.open();
 }
 
+bool is_Dock=false;
+bool is_Appr=false;
+bool is_Mani=false;
+bool dock_safety_msg_=false;
+bool final_dock_safety_msg_=false;
+void serial_safety_Callback(const std_msgs::Bool& msg){
+  dock_safety_msg_=msg.data;
+  //ROS_INFO_STREAM(dock_safety_msg_);
+}
+
+int switch_data;
+void switch_data_callback(const std_msgs::UInt16::ConstPtr& msg){
+    switch_data = msg->data;
+}
+
 int main (int argc, char** argv){
     ros::init(argc, argv, "receive_command_node");
     ros::NodeHandle nh;
 
     ros::Publisher read_command_from_PC = nh.advertise<std_msgs::Float32MultiArray>("GUI_command", 1);
+    ros::Subscriber switch_data_sub = nh.subscribe("switch_onoff",1,switch_data_callback,ros::TransportHints().tcpNoDelay());
+    ros::Subscriber serial_safety_sub = nh.subscribe("serial_safety_from_sub",1,serial_safety_Callback,ros::TransportHints().tcpNoDelay());
 
 
     try
@@ -87,7 +106,11 @@ int main (int argc, char** argv){
         return -1;
     }
 
-    ros::Rate loop_rate(200);
+    ros::Rate loop_rate(50);
+
+    std_msgs::Float32MultiArray result;
+    string ForToString = "";
+
     while(ros::ok()){
 
     ros::spinOnce();
@@ -95,16 +118,26 @@ int main (int argc, char** argv){
 	//if(!ser.available()){buffer.clear();
 	//ser.flush();}
 
-
 	    //To avoid undefined data for software blocking safety
             //reconfigure_port();
-	    if(ser.available()){buffer= ser.read(ser.available());
-		
-	    //ROS_INFO_STREAM(buffer);
+	   
+	  if(ser.available()){buffer= ser.read(ser.available());
+	   if( is_Dock  && !switch_data && (dock_safety_msg_==false))
+	   {
+		final_dock_safety_msg_ = true;
+		//ROS_INFO("DOCK_SAFETY_ON");
+	   } 
+	   else
+	   {
+		final_dock_safety_msg_ = false;
+		//ROS_INFO("DOCK_SAFETY_OFF");
+	   }
+	   ForToString = to_string(final_dock_safety_msg_);
+	
+	   ser.write(ForToString); // For dock safety
 
 	    //receive_data_test(buffer);
 
-	    std_msgs::Float32MultiArray result;
 
     	result.data.resize(topic_num);
 	    
@@ -121,9 +154,13 @@ int main (int argc, char** argv){
 				dumi = last_dump.at(i);
 				//ROS_INFO_STREAM("IM_DUMI :: " << dumi);
 				result.data[i]=strtof(dumi.c_str(),nullptr); // error code last dump의 크기보다 receive_data의 크기가 작아 발생한 애러
+				is_Appr = result.data[0];
+				is_Dock = result.data[1];
+				is_Mani = result.data[2];
 				
 			}
 			read_command_from_PC.publish(result);
+			//ROS_INFO_STREAM(dumi.size());
 		}
 	/////////////////////////////////////////////////////////////////////// 		
 	    last_dump.clear();
@@ -181,7 +218,7 @@ void receive_data_test(const string& str){
 		check_ascii = static_cast<int>(str[i]);
 		//ROS_INFO_STREAM(check_ascii);
 		if(check_ascii<0){
-			ROS_INFO_STREAM(check_ascii);
+			//ROS_INFO_STREAM(check_ascii);
 			ser.flush();
 			buffer.clear();
 			//error_cnt++;

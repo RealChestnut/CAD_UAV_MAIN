@@ -136,15 +136,7 @@ int main(int argc, char **argv)
 	ros::Subscriber desired_linear_velocity_log=nh.subscribe("/lin_vel_d",1,desired_linear_velocity_callback,ros::TransportHints().tcpNoDelay());
 	ros::Subscriber Center_of_Mass_log=nh.subscribe("/Center_of_Mass",1,center_of_mass_callback,ros::TransportHints().tcpNoDelay());
 	ros::Subscriber bias_gradient_log=nh.subscribe("/bias_gradient",1,bias_gradient_callback,ros::TransportHints().tcpNoDelay());
-	ros::Subscriber filtered_bias_gradient_log=nh.subscribe("/filtered_bias_gradient",1,filtered_bias_gradient_callback,ros::TransportHints().tcpNoDelay());
 	ros::Subscriber angular_velocity_log=nh.subscribe("/angular_velocity",1,angular_velocity_callback,ros::TransportHints().tcpNoDelay());
-	ros::Subscriber attitude_dob_disturbance_log=nh.subscribe("/att_dhat",1,attitude_dob_disturbance_callback,ros::TransportHints().tcpNoDelay());
-	ros::Subscriber external_force_log=nh.subscribe("/external_force",1,external_force_callback, ros::TransportHints().tcpNoDelay());
-	ros::Subscriber external_torque_log=nh.subscribe("/external_torque",1,external_torque_callback, ros::TransportHints().tcpNoDelay());
-	ros::Subscriber mhe_delta_t_log=nh.subscribe("/mhe_delta_t",1,mhe_delta_t_callback, ros::TransportHints().tcpNoDelay());
-	ros::Subscriber reference_position_log=nh.subscribe("/reference_position",1,reference_position_callback, ros::TransportHints().tcpNoDelay());
-	ros::Subscriber calculated_force_log=nh.subscribe("/calculated_force",1,calculated_force_callback, ros::TransportHints().tcpNoDelay());
-	ros::Subscriber non_bias_external_force_log=nh.subscribe("/non_bias_external_force",1,non_bias_external_force_callback, ros::TransportHints().tcpNoDelay());
 	ros::Subscriber force_dhat_sub=nh.subscribe("/force_dhat",1,force_dhat_callback, ros::TransportHints().tcpNoDelay());
 	ros::Subscriber torque_dhat_sub=nh.subscribe("/torque_dhat",1,torque_dhat_callback, ros::TransportHints().tcpNoDelay());
 
@@ -157,7 +149,7 @@ int main(int argc, char **argv)
 
 void publisherSet()
 {
-	data_log.data.resize(93);
+	data_log.data.resize(61);
 
 	data_log.data[0]=attitude.x;
 	data_log.data[1]=attitude.y;
@@ -214,44 +206,12 @@ void publisherSet()
 	data_log.data[52]=desired_linear_velocity.x;
 	data_log.data[53]=desired_linear_velocity.y;
 	data_log.data[54]=desired_linear_velocity.z;
-	data_log.data[55]=center_of_mass.x;
-	data_log.data[56]=center_of_mass.y;
-	data_log.data[57]=center_of_mass.z;
-	data_log.data[58]=bias_gradient.x;
-	data_log.data[59]=bias_gradient.y;
-	data_log.data[60]=bias_gradient.z;
-	data_log.data[61]=filtered_bias_gradient.x;
-	data_log.data[62]=filtered_bias_gradient.y;
-	data_log.data[63]=filtered_bias_gradient.z;
-	data_log.data[64]=angular_velocity.x;
-	data_log.data[65]=angular_velocity.y;
-	data_log.data[66]=angular_velocity.z;
-	data_log.data[67]=attitude_dob_disturbance.x;
-	data_log.data[68]=attitude_dob_disturbance.y;
-	data_log.data[69]=attitude_dob_disturbance.z;
-	data_log.data[70]=external_force.x;
-	data_log.data[71]=external_force.y;
-	data_log.data[72]=external_force.z;
-	data_log.data[73]=external_torque.x;
-	data_log.data[74]=external_torque.y;
-	data_log.data[75]=external_torque.z;
-	data_log.data[76]=mhe_delta_t;	
-	data_log.data[77]=reference_position.x;
-	data_log.data[78]=reference_position.y;
-	data_log.data[79]=reference_position.z;
-	data_log.data[80]=calculated_force.x;
-	data_log.data[81]=calculated_force.y;
-	data_log.data[82]=calculated_force.z;
-	data_log.data[83]=non_bias_external_force.x;	
-	data_log.data[84]=non_bias_external_force.y;	
-	data_log.data[85]=non_bias_external_force.z;	
-	data_log.data[86]=mass;
-	data_log.data[87]=force_dhat.x;
-	data_log.data[88]=force_dhat.y;
-	data_log.data[89]=force_dhat.z;
-	data_log.data[90]=torque_dhat.x;
-	data_log.data[91]=torque_dhat.y;
-	data_log.data[92]=torque_dhat.z;
+	data_log.data[55]=torque_dhat.x;
+	data_log.data[56]=torque_dhat.y;
+	data_log.data[57]=torque_dhat.z;
+	data_log.data[58]=angular_velocity.x;
+	data_log.data[59]=angular_velocity.y;
+	data_log.data[60]=angular_velocity.z;
 	
 	data_log_publisher.publish(data_log);
 }
