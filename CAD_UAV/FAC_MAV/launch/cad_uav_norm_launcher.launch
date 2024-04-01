@@ -1,7 +1,9 @@
 <launch>
 
+<?ignore
     <include file="$(find setting_tf2)/launch/tf2_setting.launch">
  </include>
+?>
 
     <include file="$(find optitrack)/launch/optitrack.launch">
  </include> 
@@ -11,7 +13,7 @@
   <!-- Dynamixel Workbench Controller -->
   <include file="$(find dynamixel_workbench_controllers)/launch/position_control.launch">
         <arg name="device_name"        		default="/dev/ttyU2D2"/>
-        <arg name="baud_rate"   		default="4500000"/>
+        <arg name="baud_rate"   		default="1000000"/>
 	<arg name="profile_velocity"		default="0"/>
 	<arg name="profile_acceleration"	default="0"/>
 	<arg name="position_p_gain"		default="1700"/>
@@ -21,37 +23,31 @@
     </include> 
 
 
-	<!-- ros_mscl -->
-    <include file="$(find microstrain_inertial_driver)/launch/microstrain.launch">
-<!-- 	<arg name="params_file"            default = "" /> -->
-<!--      <arg name="name"                   default = "gx5" />  -->
-	  <arg name="port"                   default = "/dev/ttyIMU" />
-	  <arg name="baudrate"               default = "115200" />
-	  <arg name="debug"                  default = "false" />
-<!--	  <arg name="diagnostics"            default = "false" /> -->
-	  <arg name="imu_frame_id"           default = "sensor" />
-	  <arg name="imu_data_rate"          default = "150" />
-	  <arg name="filter_data_rate"       default = "0" />
-	  <arg name="gnss1_frame_id"         default = "gnss1_wgs84_ned" />
-	  <arg name="gnss2_frame_id"         default = "gnss2_wgs84_ned" />
-	  <arg name="filter_frame_id"        default = "sensor_wgs84_ned" />
-<!--	  <arg name="filter_child_frame_id"  default = "sensor" /> -->
-<!--	  <arg name="nmea_frame_id"          default = "nmea" /> -->
-	  <arg name="use_enu_frame"          default = "false" />
-    	</include>
 
-<?ignore
-   <!-- t265 -->
-    <include file="$(find realsense2_camera)/launch/rs_t265.launch">
-    </include>
-?>
- 
-    <!-- rosserial_arduino -->
+s!-- ros_mscl -->
+    <include file="$(find microstrain_inertial_driver)/launch/microstrain.launch">
+          <arg name="params_file"            default = "" />
+       <!--   <arg name="name"                   default = "gx5" /> -->
+          <arg name="port"                   default = "/dev/ttyIMU" />
+          <arg name="aux_port"               default = "/dev/ttyIMU" />
+          <arg name="baudrate"               default = "115200" />
+          <arg name="debug"                  default = "false" />
+          <!-- <arg name="diagnostics"            default = "false" /> -->
+          <arg name="imu_frame_id"           default = "sensor" />
+          <arg name="imu_data_rate"          default = "150" />
+          <arg name="filter_data_rate"       default = "0" />
+          <arg name="gnss1_frame_id"         default = "gnss1_wgs84_ned"/>
+        </include>
+
+
+
+<!-- rosserial_arduino -->
     <node pkg="rosserial_arduino" type="serial_node.py" name="ros_arduino_PWMs" >
-	<param name="port" value="/dev/ttyARDUINO"/>
+        <param name="port" value="/dev/ttyARDUINO"/>
         <param name="baud" value="57600"/>
     </node>
-	<node pkg="pwm_pca9685" type="pca9685_node" name="pwm_generator"/>
+
+        <node pkg="pwm_pca9685" type="pca9685_node" name="pwm_generator"/>
 
     <!-- FAC_MAV_Controller -->
 	<!--integration limits-->
@@ -119,18 +115,16 @@
 		<param name="tilt_velocity_D_gain"	value="0.2"/> <!-- 0.2 -->
 
 		<!--Tilt Mode Position gains-->
-		<param name="tilt_position_P_gain"	value="3.0"/> <!-- 2.0 -->	
+		<param name="tilt_position_P_gain"	value="2.0"/> <!-- 2.0 -->	
 		<param name="tilt_position_I_gain"	value="0.01"/>	<!-- 0.01 -->
-		<param name="tilt_position_D_gain"	value="6.0"/>	<!-- 2.0 -->
+		<param name="tilt_position_D_gain"	value="2.0"/>	<!-- 2.0 -->
 
-		
 		<node name="cad_uav_node"  pkg="FAC_MAV" type="cad_uav" output="screen"/>
-
-<?ignore        	<node pkg="serial_module" type="serial_magnetic_node" name="serial_magnetic_module"/> ?>
-		<node pkg="receive_command_GUI" type="receive_command_GUI_node" name="receive_command_GUI"/>  
+<!--        	<node pkg="serial_module" type="serial_magnetic_node" name="serial_magnetic_module"/> -->
+ 		<node pkg="receive_command_GUI" type="receive_command_GUI_node" name="receive_command_GUI"/> 
 		<node pkg="data_logging" name="data_logging_node" type="data_logging"/>
 	
     
 	<!-- Rosbag -->
-  <node pkg="rosbag" type="record" name="record" output="screen" args="-o /home/cad_uav/catkin_ws/src/CAD_UAV/FAC_MAV/bag/ /data_log" /><!-- /angle /desired_angle /Forces /t265_pos /desired_altitude"/> --> 
+  <node pkg="rosbag" type="record" name="record" output="screen" args="-o /home/cad_uav/catkin_ws/src/CAD_UAV/FAC_MAV/bag/ /data_log /MAINagent/world" /><!-- /angle /desired_angle /Forces /t265_pos /desired_altitude"/> --> 
 </launch>  

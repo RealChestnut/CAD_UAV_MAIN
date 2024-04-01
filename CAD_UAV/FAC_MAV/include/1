@@ -8,7 +8,6 @@ void t265_Odom_Callback(const nav_msgs::Odometry::ConstPtr& msg);
 void sbus_Callback(const std_msgs::Int16MultiArray::ConstPtr& array);
 void t265_position_Callback(const geometry_msgs::Vector3& msg);
 void battery_Callback(const std_msgs::Int16& msg);
-void battery_add_Callback(const std_msgs::Int16& msg);
 void switch_Callback(const std_msgs::UInt16& msg);
 void main2sub_data_Callback(const std_msgs::Float32MultiArray& msg);
 void main_pose_data_Callback(const std_msgs::Float32MultiArray& msg);
@@ -244,7 +243,6 @@ ros::Subscriber dynamixel_state; // servo angle data callback
 ros::Subscriber att; // imu data callback
 ros::Subscriber rc_in; //Sbus signal callback from Arduino
 ros::Subscriber battery_checker; // battery level callback from Arduino 
-ros::Subscriber battery_checker_add;
 ros::Subscriber Switch_checker; // switch on off data callback from Arduino
 
 ros::Subscriber t265_position; // position data callback from T265 
@@ -288,7 +286,6 @@ ros::Publisher desired_angle; // desired angle data logging
 ros::Publisher Center_of_Mass;
 
 ros::Publisher battery_voltage;
-ros::Publisher battery_voltage_add;
 ros::Publisher delta_time;
 
 ros::Publisher kill_switch;
@@ -320,7 +317,7 @@ double x_z_dot = 0;
 double x_x = 0;
 double x_y = 0;
 double x_z = 0;
-double lin_vel_cut_off_freq = 0.005;
+double lin_vel_cut_off_freq = 1;
 
 Eigen::VectorXd lin_vel_LPF(3);
 
@@ -386,8 +383,6 @@ geometry_msgs::Vector3 position_from_t265;
 double voltage=22.4;
 double voltage_old=22.4;
 std_msgs::Float32 battery_voltage_msg;
-
-std_msgs::Float32 battery_voltage_add_msg;
 
 // ARDUINO SWITCH DATA CALLBACK //
 char switch_toggle_from_ardu=1;
@@ -662,13 +657,10 @@ void UpdateParameter(int num)
 		y_c_x+=y_c_x_dot*delta_t.count();
 		y_c_y=CoM_fc*y_c_x;
 
-		x_c_y =0; //나중에 수정
-		CoM_hat.x = -0.004 + x_c_y; 
-		// + x_c_y;
-                CoM_hat.y = -0.04 + y_c_y;
-		//-0.025;
-                CoM_hat.z = -0.065;
 		
+		CoM_hat.x = -0.004 + x_c_y;
+                CoM_hat.y = -0.04 + y_c_y;//-0.025;
+                CoM_hat.z = -0.065;
 		}
 		
                 Jxx = 4.42;//6.42;//0.71;//0.82;//1.17;//1.23;//6.75;
@@ -691,7 +683,6 @@ void UpdateParameter(int num)
                 toggle_sub1=1;
                 toggle_sub2=1;
   }
-  else{}
   // Data (combinated with other data)
   F_xd_limit=mass_system*2;
   F_yd_limit=mass_system*2;
@@ -1345,7 +1336,7 @@ void wrench_allocation()
 
 std_msgs::Float32MultiArray distributed_yaw_torque; // 23.10.05
 double tau_y_d=0.0;
-double tau_y_integ_limit = 0.3;
+double tau_y_integ_limit = 1;
 void yaw_torque_distribute()
 {
 
@@ -1676,7 +1667,7 @@ void PublishData()
   Center_of_Mass.publish(CoM_hat); // CoM
   Force_allocation_factor.publish(alpha_data);
   battery_voltage.publish(battery_voltage_msg);
-  battery_voltage_add.publish(battery_voltage_add_msg);
+
   delta_time.publish(dt); 
     
   ///////////////////////Previous Data Shifting///////////////////////////
@@ -1852,24 +1843,9 @@ void t265_position_Callback(const geometry_msgs::Vector3& msg)
     position_from_t265.z=msg.z;
 }
   
-double voltage_add = 0.0;
-double voltage_old_add = 0.0;
+
+
 //BATTERY DATA CALLBACK//
-void battery_add_Callback(const std_msgs::Int16& msg)
-{
-    
-    int16_t value=msg.data;
-    voltage_add=value*5.0/(double)1024/(7440./(30000.+7440.)); //4096
-    double kv=0.08;
-    voltage_add=kv*voltage_add+(1-kv)*voltage_old_add;
-    voltage_old_add=voltage_add;
-    if(voltage_add>25.2) voltage_add=25.2;
-    if(voltage_add<20.0) voltage_add=20.0;
-    battery_voltage_add_msg.data=voltage_add;
-
-
-}
-
 
 void battery_Callback(const std_msgs::Int16& msg)
 {
@@ -1947,8 +1923,7 @@ void main_pose_data_Callback(const std_msgs::Float32MultiArray& msg){
 	main_position_opti_new.x = msg.data[0];
 	main_position_opti_new.y = msg.data[1];
 	main_position_opti_new.z = msg.data[2];
-	
-	
+	/*
 	if((main_position_opti_new.x - main_position_opti_prev.x)!=0){
 	lin_vel_opti.x = (main_position_opti_new.x - main_position_opti_prev.x)/delta_t.count();
 	lin_vel_opti.y = (main_position_opti_new.y - main_position_opti_prev.y)/delta_t.count();
@@ -1969,14 +1944,14 @@ void main_pose_data_Callback(const std_msgs::Float32MultiArray& msg){
 
 
 	// global axis :: linear velocity
-    //lin_vel.x=lin_vel_LPF(0);//lin_vel_opti.x;
-    //lin_vel.y=lin_vel_LPF(1);//lin_vel_opti.y;
-    //lin_vel.z=lin_vel_LPF(2);//lin_vel_opti.z;
+    lin_vel.x=lin_vel_LPF(0);//lin_vel_opti.x;
+    lin_vel.y=lin_vel_LPF(1);//lin_vel_opti.y;
+    lin_vel.z=lin_vel_LPF(2);//lin_vel_opti.z;
 
     main_position_opti_prev.x = main_position_opti_new.x;
     main_position_opti_prev.y = main_position_opti_new.y;
     main_position_opti_prev.z = main_position_opti_new.z;
-	
+	*/
 
 	kalman_Filtering();
 	

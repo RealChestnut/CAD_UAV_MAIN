@@ -59,20 +59,19 @@ void push_data_callback(const std_msgs::String& msg){
 
 int switch_data=1;
 int switch_cnt = 0;
-int switch_cnt_max = 150;
+int switch_cnt_max = 100;
 
-int debounce_cnt = 0;
-int debounce_cnt_limit = 20;
-
+int x_ax_dot=0;
+int cutoff_freq=1;
+int x_ax=0;
 void switch_data_callback(const std_msgs::UInt16::ConstPtr& msg){
-	
-	if(!(msg->data)){debounce_cnt++;}
-	if((msg->data)){debounce_cnt--;}
-	if(debounce_cnt>debounce_cnt_limit){debounce_cnt = debounce_cnt_limit;}
-	if(debounce_cnt<0){debounce_cnt=0;}
-	if(debounce_cnt >=debounce_cnt_limit/2){switch_data = false;}
-	else{switch_data = true;}
-	ROS_INFO_STREAM(switch_data);
+	/*
+	int dumi_Cnt = msg->data;
+	x_ax_dot=-cutoff_freq*x_ax+dumi_Cnt;
+        x_ax+=x_ax_dot*delta_t.count();
+	    switch_data = x_ax;
+	    */
+	switch_data = msg->data;
 }
 bool is_Appr=false;
 bool is_Dock=false;
@@ -105,15 +104,14 @@ void serial_check()
                 ser.write("ABCD"); // 시리얼 모듈을 통해 통신이 잘되는지 확인하기 위한 request문자발송
                 dumi = ser.read(ser.available());//dumi에 receive message 수신
 		ROS_INFO_STREAM(dumi);
+		ROS_INFO("good");
                 if((dumi.find("ABCD")!=string::npos)){safety_cnt++;} //dumi에 CD가 포함되어 있다면 연결성을 확인하기 위한 count++
 	}	
 		if((safety_cnt >= safety_cnt_pass))
 		{	//연결성을 확인하기 위한 count가 pass기준이상으로 들어올 경우 안전하게 연결됐다고 판단 saftey_msg = true로 변경, 나중에 새로운 도킹을 위한 init_serial은 false로 변경
 		
 			ROS_INFO("START");
-			for(int i = 0;i<3;i++){
-			ser.write("START");
-		       	if(i==2){safety_msg = true; init_serial=false; safety_cnt=0;}}
+			ser.write("START"); safety_msg = true; init_serial=false; safety_cnt=0;
 		}
 		
 	
@@ -173,6 +171,7 @@ int main (int argc, char** argv){
 		
         //ser.write(push_data.data);	
 	//string meaning_less = "test";
+	
 	if(!switch_data){
 		switch_cnt++;
 		if(switch_cnt >= switch_cnt_max){

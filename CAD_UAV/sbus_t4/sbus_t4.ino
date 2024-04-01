@@ -69,9 +69,11 @@ ros::NodeHandle nh;
 
 std_msgs::Int16MultiArray sbus_msg;
 std_msgs::Int16 voltage_msg;
+std_msgs::Int16 voltage_add_msg;
 std_msgs::UInt16 isdock;
 ros::Publisher sbus("sbus", &sbus_msg);
 ros::Publisher battery("battery", &voltage_msg);
+ros::Publisher battery_add("battery_add", &voltage_add_msg);
 ros::Publisher message("switch_onoff", &isdock);
 //--------------------------------------------------------------------------------------
 
@@ -82,6 +84,7 @@ ros::Publisher message("switch_onoff", &isdock);
 //-----------------------------------------------------------------------
 // Battery Voltage Check=================================================
 #define BATTERY_V_PIN            A11
+#define BATTERY_V_PIN_ADD        A9
 //-----------------------------------------------------------------------
 
 // Servo Switch =========================================================
@@ -193,6 +196,7 @@ void setup() {
   //  Serial.begin(250000);
   Serial1.begin(100000, SERIAL_8E2);
   pinMode(BATTERY_V_PIN, INPUT);
+  pinMode(BATTERY_V_PIN_ADD, INPUT);
   pinMode(btn, INPUT);
   pinMode(btn2, INPUT);
   digitalWrite(btn, HIGH);
@@ -205,6 +209,7 @@ void setup() {
   nh.initNode();
   nh.advertise(sbus);
   nh.advertise(battery);
+  nh.advertise(battery_add);
   nh.advertise(message);
   //--------------------------------------------------------------------------------
   //analogReadResolution(12);
@@ -247,8 +252,10 @@ void loop() {
   //    else{angle_command=0;}
 
   voltage_msg.data = analogRead(BATTERY_V_PIN);
+  voltage_add_msg.data = analogRead(BATTERY_V_PIN_ADD);
   sbus.publish(&sbus_msg);
   battery.publish(&voltage_msg);
+  battery_add.publish(&voltage_add_msg);
   nh.spinOnce();
 
   while (micros() - start_time < 20000);

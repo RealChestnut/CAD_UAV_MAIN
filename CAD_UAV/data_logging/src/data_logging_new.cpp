@@ -52,6 +52,7 @@ geometry_msgs::Vector3 torque_dob;
 double PWM_cmd[8]={1000., 1000., 1000., 1000., 1000., 1000., 1000., 1000.};
 double individual_motor_thrust[4]={0.0, 0.0, 0.0, 0.0};
 double battery_voltage=16.0;
+double battery_voltage_add=0.0;
 double delta_t=0.0;
 double SBUS[10]={1000.,1000.,1000.,1000.,1000.,1000.,1000.,1000.,1000.,1000.};
 double theta1=0.0; 
@@ -77,6 +78,7 @@ void motor_thrust_callback(const std_msgs::Float32MultiArray::ConstPtr& msg);
 void servo_angle_callback(const sensor_msgs::JointState& msg);
 void desired_servo_angle_callback(const sensor_msgs::JointState& msg);
 void battery_voltage_callback(const std_msgs::Float32& msg);
+void battery_voltage_add_callback(const std_msgs::Float32& msg);
 void sampling_time_callback(const std_msgs::Float32& msg);
 void desired_force_callback(const geometry_msgs::Vector3& msg);
 void desired_torque_callback(const geometry_msgs::Vector3& msg);
@@ -113,6 +115,7 @@ int main(int argc, char **argv)
 	ros::Subscriber sbus_log=nh.subscribe("sbus",1,sbus_callback,ros::TransportHints().tcpNoDelay());
 	ros::Subscriber delta_t_log=nh.subscribe("delta_t",1,sampling_time_callback,ros::TransportHints().tcpNoDelay());
 	ros::Subscriber battery_voltage_log=nh.subscribe("battery_voltage",1,battery_voltage_callback,ros::TransportHints().tcpNoDelay());
+	ros::Subscriber battery_voltage_add_log=nh.subscribe("battery_voltage_add",1,battery_voltage_add_callback,ros::TransportHints().tcpNoDelay());
 	ros::Subscriber linear_velocity_log=nh.subscribe("lin_vel",1,linear_velocity_callback,ros::TransportHints().tcpNoDelay());
 	ros::Subscriber linear_velocity_opti_log=nh.subscribe("lin_vel_opti",1,linear_velocity_opti_callback,ros::TransportHints().tcpNoDelay());
 	ros::Subscriber desired_linear_velocity_log=nh.subscribe("lin_vel_d",1,desired_linear_velocity_callback,ros::TransportHints().tcpNoDelay());
@@ -131,7 +134,7 @@ int main(int argc, char **argv)
 
 void publisherSet()
 {
-	data_log.data.resize(77);
+	data_log.data.resize(78);
 
 	data_log.data[0]=attitude.x;
 	data_log.data[1]=attitude.y;
@@ -182,35 +185,36 @@ void publisherSet()
 	data_log.data[46]=SBUS[8];
 	data_log.data[47]=delta_t;
 	data_log.data[48]=battery_voltage;
-	data_log.data[49]=linear_velocity.x;
-	data_log.data[50]=linear_velocity.y;
-	data_log.data[51]=linear_velocity.z;
-	data_log.data[52]=desired_linear_velocity.x;
-	data_log.data[53]=desired_linear_velocity.y;
-	data_log.data[54]=desired_linear_velocity.z;
-	data_log.data[55]=angular_velocity.x;
-	data_log.data[56]=angular_velocity.y;
-	data_log.data[57]=angular_velocity.z;
-	data_log.data[58]=center_of_mass.x;
-	data_log.data[59]=center_of_mass.y;
-	data_log.data[60]=center_of_mass.z;
-	data_log.data[61]=bias_gradient.x;
-	data_log.data[62]=bias_gradient.y;
-	data_log.data[63]=bias_gradient.z;
-	data_log.data[64]=filtered_bias_gradient.x;
-	data_log.data[65]=filtered_bias_gradient.y;
-	data_log.data[66]=filtered_bias_gradient.z;
-	data_log.data[67]=FORCE_allocation_factor[0];
-	data_log.data[68]=FORCE_allocation_factor[1];
-	data_log.data[69]=desired_torque_y_split[0];
-	data_log.data[70]=desired_torque_y_split[1];
+	data_log.data[49]=battery_voltage_add;
+	data_log.data[50]=linear_velocity.x;
+	data_log.data[51]=linear_velocity.y;
+	data_log.data[52]=linear_velocity.z;
+	data_log.data[53]=desired_linear_velocity.x;
+	data_log.data[54]=desired_linear_velocity.y;
+	data_log.data[55]=desired_linear_velocity.z;
+	data_log.data[56]=angular_velocity.x;
+	data_log.data[57]=angular_velocity.y;
+	data_log.data[58]=angular_velocity.z;
+	data_log.data[59]=center_of_mass.x;
+	data_log.data[60]=center_of_mass.y;
+	data_log.data[61]=center_of_mass.z;
+	data_log.data[62]=bias_gradient.x;
+	data_log.data[63]=bias_gradient.y;
+	data_log.data[64]=bias_gradient.z;
+	data_log.data[65]=filtered_bias_gradient.x;
+	data_log.data[66]=filtered_bias_gradient.y;
+	data_log.data[67]=filtered_bias_gradient.z;
+	data_log.data[68]=FORCE_allocation_factor[0];
+	data_log.data[69]=FORCE_allocation_factor[1];
+	data_log.data[70]=desired_torque_y_split[0];
+	data_log.data[71]=desired_torque_y_split[1];
 	
-	data_log.data[71]=torque_dob.x;
-	data_log.data[72]=torque_dob.y;
-	data_log.data[73]=torque_dob.z;
-	data_log.data[74]=linear_velocity_opti.x;
-	data_log.data[75]=linear_velocity_opti.y;
-	data_log.data[76]=linear_velocity_opti.z;
+	data_log.data[72]=torque_dob.x;
+	data_log.data[73]=torque_dob.y;
+	data_log.data[74]=torque_dob.z;
+	data_log.data[75]=linear_velocity_opti.x;
+	data_log.data[76]=linear_velocity_opti.y;
+	data_log.data[77]=linear_velocity_opti.z;
 	
 	data_log_publisher.publish(data_log);
 }
@@ -280,6 +284,10 @@ void desired_linear_velocity_callback(const geometry_msgs::Vector3& msg){
 
 void battery_voltage_callback(const std_msgs::Float32& msg){
 	battery_voltage=msg.data;	
+}
+
+void battery_voltage_add_callback(const std_msgs::Float32& msg){
+	battery_voltage_add=msg.data;
 }
 
 void sampling_time_callback(const std_msgs::Float32& msg){

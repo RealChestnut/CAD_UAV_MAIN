@@ -13,8 +13,8 @@
 #include <iterator>
 #include <sys/ioctl.h>
 #include <sstream>
-
-
+#include <regex>
+#include <sstream>
 
 using namespace std;
 serial::Serial ser;
@@ -46,6 +46,18 @@ void reconfigure_port();
 void parseData(const string& msg,vector<string>& values,string& delimiter);
 void serial_open_safety();
 
+string process_data(const string input_data){
+        string dumi ="";
+
+        if(input_data.length() <= 15){
+                return input_data;
+        }
+        else{
+                return dumi;
+        }
+
+}
+
 void try_set_port(){
 	ROS_INFO("try_set_port");
 	
@@ -64,12 +76,14 @@ bool dock_safety_msg_=false;
 bool final_dock_safety_msg_=false;
 void serial_safety_Callback(const std_msgs::Bool& msg){
   dock_safety_msg_=msg.data;
+  //dock_safety_msg_ = false;
   //ROS_INFO_STREAM(dock_safety_msg_);
 }
 
 int switch_data;
 void switch_data_callback(const std_msgs::UInt16::ConstPtr& msg){
     switch_data = msg->data;
+    //switch_data = 0;
 }
 
 int main (int argc, char** argv){
@@ -121,7 +135,8 @@ int main (int argc, char** argv){
 	    //To avoid undefined data for software blocking safety
             //reconfigure_port();
 	   
-	  if(ser.available()){buffer= ser.read(ser.available());
+	  if(ser.available()){
+		  buffer= process_data(ser.read(ser.available()));
 	   if( is_Dock  && !switch_data && (dock_safety_msg_==false))
 	   {
 		final_dock_safety_msg_ = true;
@@ -159,7 +174,7 @@ int main (int argc, char** argv){
 				is_Mani = result.data[2];
 				
 			}
-			read_command_from_PC.publish(result);
+			read_command_from_PC.publish(result); 
 			//ROS_INFO_STREAM(dumi.size());
 		}
 	/////////////////////////////////////////////////////////////////////// 		
@@ -170,75 +185,154 @@ int main (int argc, char** argv){
 	}
 }
 
-void serial_open_safety(){
-	
-	if(ser.available()){serial_open_cnt++;}
-	
+string A__="";
+string B__="";
+string C__="";
+string Fin__="";
 
+string A_ = "";
+string B_ = "";
+string C_ = "";
+stringstream ss;
 
+int solution(string msg) {
+    int answer = 0;
+    char cstr[3];
+    strcpy(cstr,msg.c_str());
 
+    for (int i = 0; i<strlen(cstr);i++) {
+	    if (cstr[i] > 47 && cstr[i] < 58) { // 숫자 판별
+            answer = (answer * 10) + (cstr[i] - 48); // 자릿값 올리면서 갱신
+        }
+    }
+
+    return answer;
 }
-
 
 void parseData(const string& str, vector<string>& values,string& delimiter){
 	string msg;
 	msg.assign(str);
-	
+	/*
 	if((msg.find('<')!=string::npos) && (msg.find('>')!=string::npos))
 	{
 		msg.erase(std::find(msg.begin(),msg.end(),'<'));
 		msg.erase(std::find(msg.begin(),msg.end(),'>'));
 	}
 
-		
+
 	string::size_type Fpos = msg.find_first_not_of(delimiter,0);
 	string::size_type Lpos = msg.find_first_of(delimiter, Fpos);
 	while (string::npos != Fpos || string::npos != Lpos)
 	{
-		
-	
+
+
 		values.push_back(msg.substr(Fpos, Lpos - Fpos));
-		
-		
+
+
 
 		Fpos = msg.find_first_not_of(delimiter, Lpos);
 		Lpos = msg.find_first_of(delimiter, Fpos);
-		
-	}
 
-}
-int error_cnt = 0;
-int e_middle_cnt=0;
-bool e_middle_flag=false;
-void receive_data_test(const string& str){
-	int i = 0;
-	int check_ascii;
-	while(i<str.size()){
-                
-		check_ascii = static_cast<int>(str[i]);
-		//ROS_INFO_STREAM(check_ascii);
-		if(check_ascii<0){
-			//ROS_INFO_STREAM(check_ascii);
-			ser.flush();
-			buffer.clear();
-			//error_cnt++;
-		}
-		
-		/*if(error_cnt>3){
-			if(ser.available()){
-				ser.write("0");}}
-		if(error_cnt>50){
-			ser.close();
-			error_cnt=0;}
-
-		i++;*/
-	}
-	/*
-	if(!ser.isOpen()){
-		ROS_INFO("close");
-		reconfig_port_flag = true;
 	}*/
+	
+        string A_ = "";
+	if(msg.find("<0A") !=string::npos){
+
+		A_ = msg.substr(msg.find("<0A"),3);
+
+	}
+
+	if(msg.find("<1A") !=string::npos){
+
+		A_ = msg.substr(msg.find("<1A"),3);
+
+	}
+	if(!A_.empty()){
+		//A__ = regex_replace( A_ , regex("[^0-9]"), "" );
+		A__ = to_string(solution(A_));
+			
+
+
+	}
+
+
+	//////////////////////////////////////////////////////////////
+
+	string B_ = "";
+        if(msg.find("B0C") !=string::npos){
+
+                B_ = msg.substr(msg.find("B0C"),3);
+
+        }
+
+        if(msg.find("B1C") !=string::npos){
+
+                B_ = msg.substr(msg.find("B1C"),3);
+
+        }
+
+        if(!B_.empty()){
+               // B__ = regex_replace( B_ , regex("[^0-9]"), "" );
+	       B__ = to_string(solution(B_));
+
+        }
+
+
+        //////////////////////////////////////////////////////////////
+
+	string C_ = "";
+        if(msg.find("D0>") !=string::npos){
+
+                C_ = msg.substr(msg.find("D0>"),3);
+
+        }
+
+        if(msg.find("D1>") !=string::npos){
+
+                C_ = msg.substr(msg.find("D1>"),3);
+
+        }
+
+        if(!C_.empty()){
+                //C__ = regex_replace( C_ , regex("[^0-9]"), "" ); //regex 이부분 다른 코드로 교체
+		C__ = to_string(solution(C_));
+
+        }
+
+        //////////////////////////////////////////////////////////////
+	ROS_INFO("AAA");
+  	ROS_INFO_STREAM(A__);
+	ROS_INFO("BBB");
+	ROS_INFO_STREAM(B__);
+        ROS_INFO("CCC");
+	ROS_INFO_STREAM(C__);
+        ROS_INFO("---");
+	Fin__ = A__ +','+B__+','+C__;
+
+	ROS_INFO_STREAM(Fin__);
+	ROS_INFO("___");
+
+	string::size_type Fpos = Fin__.find_first_not_of(delimiter,0);
+        string::size_type Lpos = Fin__.find_first_of(delimiter, Fpos);
+        while (string::npos != Fpos || string::npos != Lpos)
+        {
+
+
+                values.push_back(Fin__.substr(Fpos, Lpos - Fpos));
+
+
+
+                Fpos = Fin__.find_first_not_of(delimiter, Lpos);
+                Lpos = Fin__.find_first_of(delimiter, Fpos);
+
+        } 
+
+
+
+
 }
+
+
 int wait_cnt=0;
 void reconfigure_port(){
 	if(!ser.isOpen() && reconfig_port_flag){
@@ -251,32 +345,30 @@ void reconfigure_port(){
 	wait_cnt=0;
 	/*reconfig_port_flag=false;*/}}
 }
+string first_str = "";
 
-int cnt_start=0;
-int cnt_end=0;
+
 void receive_data(const string& str){
-	    //1. receive data from buffer 
-	    // we dont know per buffer has markers ensurely 
+	    //1. receive data from buffer
+	    // we dont know per buffer has markers ensurely
 	    //2. check start marker end, end marker
 	    //first check that buffer has end marker
 	    //if has end marker, put data from end marker to string head position
 	    //if has start marker, put data from < to the rest
 	    //3. and take a loop again until buffer has > end marker
-	    //if has end marker, 
-
+	    //if has end marker,
+	    //  <0PE0TE0> 를 완성하고 순차적으로 데이터를 체크하는게 포인트
+	    //  문자가 들어올때 <~PE까지 PE~TE까지 TE~>까지 플래그를 두고 데이터를 읽는다
+	    //  str.find_first_not_of() :: address반환
+	    //  str.find() :: 위치값 반환
+	    //  str.substr(시작위치,위치로부터 얼마만큼의 크기)
 
 	    int i = 0;
-	    bool start_flag=false;
 	    while(i<str.size())
 	    {
-		    if((str[i] == '>' ) && temp_2.empty())
-		    {
-			    temp_1=str;
-			    temp_1.clear();
-		    }
+
 		    if(str[i]=='<')
 		    {
-			    start_flag=true;
 			    if(temp_2.empty() && !temp_2_on){temp_2_on=true;}
 		    }
 
@@ -285,13 +377,10 @@ void receive_data(const string& str){
 			    temp_2.push_back(str[i]);
 			    if(str[i]=='>')
 			    {
-				    cnt_start++;
-				    parseData(temp_2,last_dump ,dot);
-			   	    cnt_end++;
-				    ROS_INFO_STREAM(temp_2);
+				    parseData(temp_2, last_dump, dot);
+				    //ROS_INFO_STREAM(temp_2);
 				    temp_2.clear();
 				    temp_2_on=false;
-
 
 			    }
 		    }

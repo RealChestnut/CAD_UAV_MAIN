@@ -70,6 +70,7 @@ int main(int argc, char **argv)
     att = nh.subscribe("/imu/data",1,imu_Callback,ros::TransportHints().tcpNoDelay()); // angle data from IMU
     rc_in = nh.subscribe("/sbus",1,sbus_Callback,ros::TransportHints().tcpNoDelay()); // sbus data from arduino
     battery_checker = nh.subscribe("/battery",1,battery_Callback,ros::TransportHints().tcpNoDelay()); // battery sensor data from arduino
+    battery_checker_add = nh.subscribe("/battery_add",1,battery_add_Callback,ros::TransportHints().tcpNoDelay()); // battery sensor data from arduino
     Switch_checker = nh.subscribe("switch_onoff",1,switch_Callback,ros::TransportHints().tcpNoDelay()); // switch interrupt from arduino
 
 //    t265_position=nh.subscribe("/t265_pos",1,t265_position_Callback,ros::TransportHints().tcpNoDelay()); // position data from t265
@@ -109,7 +110,10 @@ int main(int argc, char **argv)
 
     desired_force = nh.advertise<geometry_msgs::Vector3>("force_d",1);
 
+    Center_of_Mass = nh.advertise<geometry_msgs::Vector3>("Center_of_Mass",1);
+
     battery_voltage = nh.advertise<std_msgs::Float32>("battery_voltage",1);
+    battery_voltage_add = nh.advertise<std_msgs::Float32>("battery_voltage_add",1);
 
     Force_allocation_factor = nh.advertise<std_msgs::Float32MultiArray>("force_allocation_factor",1);
 
