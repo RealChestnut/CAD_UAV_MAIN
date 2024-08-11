@@ -1,0 +1,211 @@
+/***
+ * This example expects the serial port has a loopback on it.
+ *
+ * Alternatively, you could use an Arduino:
+ *
+ * <pre>
+ *  void setup() {
+ *    Serial.begin(<insert your baudrate here>);
+ *  }
+ *
+ *  void loop() {
+ *    if (Serial.available()) {
+ *      Serial.write(Serial.read());
+ *    }
+ *  }
+ * </pre>
+ */
+#include <iostream>
+#include <ros/ros.h>
+#include <string.h>
+#include <vector>
+#include <serial/serial.h>
+#include <std_msgs/String.h>
+#include <std_msgs/Empty.h>
+#include <std_msgs/Float32.h>
+#include <std_msgs/UInt16.h>
+#include <std_msgs/Bool.h>
+#include <std_msgs/Float32MultiArray.h>
+#include <chrono>
+
+#include <sys/ioctl.h>
+
+using namespace std;
+std::chrono::high_resolution_clock::time_point end_T=std::chrono::high_resolution_clock::now();
+std::chrono::high_resolution_clock::time_point start_T=std::chrono::high_resolution_clock::now();
+std::chrono::duration<double> delta_t;
+
+serial::Serial ser;
+std_msgs::String ToSub;
+std_msgs::String push_data;
+
+float buffer=0;
+string message_safety="1";
+
+void alpha_callback(const std_msgs::Float32::ConstPtr& msg){
+    
+    buffer=msg->data;
+    //ROS_INFO("%f",buffer);
+
+    ToSub.data = to_string(buffer);
+    //ser.write(ToSub.data);
+    // ser.wirte는 무조건 std_msgs의 string형이여야함
+    //ROS_INFO_STREAM("write data" << ToSub.data);
+}
+
+void push_data_callback(const std_msgs::String& msg){
+    push_data.data = msg.data;
+}
+
+int switch_data=1;
+int switch_cnt = 0;
+int switch_cnt_max = 150;
+
+int debounce_cnt = 0;
+int debounce_cnt_limit = 20;
+
+void switch_data_callback(const std_msgs::UInt16::ConstPtr& msg){
+	
+	if(!(msg->data)){debounce_cnt++;}
+	if((msg->data)){debounce_cnt--;}
+	if(debounce_cnt>debounce_cnt_limit){debounce_cnt = debounce_cnt_limit;}
+	if(debounce_cnt<0){debounce_cnt=0;}
+	if(debounce_cnt >=debounce_cnt_limit/2){switch_data = false;}
+	else{switch_data = true;}
+	ROS_INFO_STREAM(switch_data);
+}
+bool is_Appr=false;
+bool is_Dock=false;
+bool is_Mani=false;
+void zigbee_command_Callback(const std_msgs::Float32MultiArray& msg){
+
+        is_Appr=msg.data[0]; // approching process
+        is_Dock=msg.data[1]; // docking process
+        is_Mani=msg.data[2]; // battery switching process
+                             // if all false? --> sbus command flight
+                             // if Dock mode && after commbined :: flight w.r.t. main drone
+}
+
+
+//시리얼 모듈이 잘 연결되어 있는지 확인하기 위한 함수
+ 
+bool init_serial = true;
+bool safety_msg = false;
+std_msgs::Bool safety_msg_;
+int safety_cnt = 0;
+int dumi_cnt =0;
+
+void serial_check()
+{
+        
+	int safety_cnt_pass=2; // 시리얼 모듈의 연결이 됐음을 나타내는 count의 pass count 기준 
+	string dumi = ""; // safety msg의 response를 담는 dumi변수
+        if(!switch_data && init_serial && is_Dock)// 스위치가 눌리고 && 스위치가 처음 눌린 경우
+        {
+                ser.write("ABCD"); // 시리얼 모듈을 통해 통신이 잘되는지 확인하기 위한 request문자발송
+                dumi = ser.read(ser.available());//dumi에 receive message 수신
+		ROS_INFO_STREAM(dumi);
+                if((dumi.find("ABCD")!=string::npos)){safety_cnt++;} //dumi에 CD가 포함되어 있다면 연결성을 확인하기 위한 count++
+	}	
+		if((safety_cnt >= safety_cnt_pass))
+		{	//연결성을 확인하기 위한 count가 pass기준이상으로 들어올 경우 안전하게 연결됐다고 판단 saftey_msg = true로 변경, 나중에 새로운 도킹을 위한 init_serial은 false로 변경
+		
+			ROS_INFO("START");
+			for(int i = 0;i<3;i++){
+			ser.write("START");
+		       	if(i==2){safety_msg = true; init_serial=false; safety_cnt=0;}}
+		}
+		
+	
+	safety_msg_.data = safety_msg; //topic을 통해 계속해서 데이터를 전송한다. 빠른 response를위함
+
+}
+
+
+int main (int argc, char** argv){
+    ros::init(argc, argv, "serial_node_main");
+    ros::NodeHandle nh;
+    
+    ros::Subscriber push_data_sub = nh.subscribe("ToSubData",1,push_data_callback,ros::TransportHints().tcpNoDelay());
+    ros::Subscriber switch_data_sub = nh.subscribe("switch_onoff",1,switch_data_callback,ros::TransportHints().tcpNoDelay());
+    ros::Subscriber sub_zigbee_command = nh.subscribe("GUI_command",1,zigbee_command_Callback,ros::TransportHints().tcpNoDelay());
+    ros::Publisher  serial_safety_from_sub = nh.advertise<std_msgs::Bool>("serial_safety_from_sub", 1);
+
+    
+
+    try
+    {
+        ser.setPort("/dev/ttySERIAL");
+        ser.setBaudrate(57600);
+        serial::Timeout to = serial::Timeout::simpleTimeout(1000);
+        ser.setTimeout(to);
+	serial::flowcontrol_t flow_state = serial::flowcontrol_t::flowcontrol_none;
+        ser.setFlowcontrol(flow_state);
+        ser.open();
+    }
+    catch (serial::IOException& e)
+    {
+        ROS_ERROR_STREAM("Unable to open port ");
+        return -1;
+    }
+
+    if(ser.isOpen()){
+        ROS_INFO_STREAM("Serial Port initialized");
+    
+    }else{
+        return -1;
+    }
+    
+    ros::Rate loop_rate(200);
+    
+    bool reopen_flag=false; 
+    while(ros::ok()){
+
+	 end_T=std::chrono::high_resolution_clock::now();
+	 delta_t=end_T-start_T;
+	 start_T=std::chrono::high_resolution_clock::now();
+         
+        ros::spinOnce();
+
+	//write data-------------------------------//
+
+        //ROS_INFO_STREAM("subscribe : " <<push_data.data);
+		
+        //ser.write(push_data.data);	
+	//string meaning_less = "test";
+	if(!switch_data){
+		switch_cnt++;
+		if(switch_cnt >= switch_cnt_max){
+			
+	serial_check();
+	ROS_INFO_STREAM(ser.read(ser.available()));
+	
+	if(safety_msg ==true)
+	{	
+		
+		ser.write(push_data.data);
+	}
+	
+	}
+		//if(switch_cnt == switch_cnt_max){switch_cnt = switch_cnt_max;}
+		switch_cnt = switch_cnt_max;
+    }
+	
+	if(switch_data || !is_Dock){
+		init_serial=true; 
+		safety_msg = false; 
+		safety_cnt=0;
+		switch_cnt=0;
+		ser.flush();}
+	serial_safety_from_sub.publish(safety_msg_);
+
+        //----------------------------------------//
+	
+	
+
+
+
+        loop_rate.sleep();
+
+    }
+}
