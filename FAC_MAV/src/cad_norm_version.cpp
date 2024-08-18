@@ -73,10 +73,10 @@ int main(int argc, char **argv)
     battery_checker_add = nh.subscribe("/battery_add",1,battery_add_Callback,ros::TransportHints().tcpNoDelay()); // battery sensor data from arduino
     Switch_checker = nh.subscribe("switch_onoff",1,switch_Callback,ros::TransportHints().tcpNoDelay()); // switch interrupt from arduino
 
-    //t265_position=nh.subscribe("/t265_pos",1,t265_position_Callback,ros::TransportHints().tcpNoDelay()); // position data from t265
-    //t265_rotation=nh.subscribe("/t265_rot",1,t265_rotation_Callback,ros::TransportHints().tcpNoDelay()); // angle data from t265
+//    t265_position=nh.subscribe("/t265_pos",1,t265_position_Callback,ros::TransportHints().tcpNoDelay()); // position data from t265
+//    t265_rotation=nh.subscribe("/t265_rot",1,t265_rotation_Callback,ros::TransportHints().tcpNoDelay()); // angle data from t265
 
-    t265_odom=nh.subscribe("/rs_t265/odom/sample",1,t265_Odom_Callback,ros::TransportHints().tcpNoDelay()); // odometry data from t265
+//    t265_odom=nh.subscribe("/rs_t265/odom/sample",1,t265_Odom_Callback,ros::TransportHints().tcpNoDelay()); // odometry data from t265
 
     main2sub_data = nh.subscribe("read_serial_magnetic",1,main2sub_data_Callback,ros::TransportHints().tcpNoDelay()); // wrench data subscribe
 

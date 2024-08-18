@@ -89,15 +89,15 @@ double y_d_tangent_deadzone = (double)0.05 * y_vel_limit;//(rad/s)
 double T_limit = 80;// thrust limit (N) :: mass*g
 double altitude_limit = 1.2;// z direction limit (m)
 double XY_limit = 3.0; // position limit
-double XYZ_dot_limit=1; // linear velocity limit
-double XYZ_ddot_limit=2; // linear acceleration limit
+double XYZ_dot_limit=2.0; // linear velocity limit
+double XYZ_ddot_limit=1.0; // linear acceleration limit
 double hardware_servo_limit=0.3; // servo limit w.r.t. hardware
 double servo_command_limit = 0.3; // servo limit w.r.t. command part
-double tau_y_limit = 0.25; // yaw torque limit
+double tau_y_limit = 0.20; // yaw torque limit
 double tau_y_th_limit = 3.0; // yaw torque w.r.t. servo tilt limit
 
-double F_xd_limit = mass_system*2.0; // X direction force limit 
-double F_yd_limit = mass_system*2.0; // Y direction force limit
+double F_xd_limit = mass_system*1.0; // X direction force limit 
+double F_yd_limit = mass_system*1.0; // Y direction force limit
 
 geometry_msgs::Vector3 CoM_hat; // center of mass
 geometry_msgs::Vector3 CoM_hat_log; // center of mass
@@ -208,7 +208,7 @@ Eigen::MatrixXd Q_T_Z_x(2,1);
 Eigen::MatrixXd Q_T_Z_x_dot(2,1);
 Eigen::MatrixXd Q_T_Z_y(1,1);
 
-double torque_dob_fc = 1.0; // original :: 3.0, combiend :: 1.0
+double torque_dob_fc = 1.7; // original :: 3.0, combiend :: 1.0
 double torque_dob_roll_fc=6.0;
 double dhat_tau_r = 0;
 double dhat_tau_p = 0;
@@ -424,7 +424,8 @@ int button_limit=10; // button count limit
 int cnt_switching=0; // mono -> combined || combined -> mono :: for distinguish
 double time_switching=0; // 
 int time_limit_switching=5; // 
-int servo_angle=0;
+int servo_angle = 0;
+int servo_pusher_angle = 0;
 
 void shape_detector()
 {
@@ -559,7 +560,7 @@ else{
 
         Py = 12; //combined :: 24
         Iy = 0; //combined :: 0
-        Dy = 10; //combined :: 6
+        Dy = 4; //combined :: 6
 
         Pz = tilt_Pz;
         Iz = tilt_Iz;
@@ -692,8 +693,8 @@ void UpdateParameter(int num)
   }
   else{}
   // Data (combinated with other data)
-  F_xd_limit=mass_system*2;
-  F_yd_limit=mass_system*2;
+  F_xd_limit=mass_system*1;
+  F_yd_limit=mass_system*1;
   T_limit = mass_system*10;
   
   //// system MoI Initialize ////
@@ -745,21 +746,29 @@ void Switching_safety(){
           // Fxyd limit || accel_limit //
           F_xd_limit=mass_system*4; //acc limit 1m/s^2
           F_yd_limit=mass_system*4;
-	  XYZ_dot_limit=2;
+	  XYZ_dot_limit=4;
 	  XYZ_ddot_limit=4;
 	  servo_angle=map<int16_t>(0,0,180, 2000, 1000);
 	  button_cnt=0; //23.12.28
           time_switching+=delta_t.count();}}
+
+  if(time_switching > 1.5){
+
+	  servo_pusher_angle = map<int16_t>(170,0,180, 2000,1000);
+	
+  }
+
   if(time_switching>time_limit_switching){
           cnt_switching=0;
 
-	  F_xd_limit=mass_system*2; //acc limit 1m/s^2
-          F_yd_limit=mass_system*2;
-          XYZ_dot_limit=1;
-          XYZ_ddot_limit=2;
+	  F_xd_limit=mass_system*1; //acc limit 1m/s^2
+          F_yd_limit=mass_system*1;
+          XYZ_dot_limit=2;
+          XYZ_ddot_limit=1;
 
 	  button_cnt=0;//23.12.28
   	  servo_angle=map<int16_t>(0,0,180, 2000, 1000);
+	  servo_pusher_angle = map<int16_t>(0,0,180, 2000, 1000); 
 	  time_switching=0;}
 
   //ROS_INFO_STREAM(servo_angle);
@@ -1064,8 +1073,8 @@ void torque_DOB()
 
   MinvQ_T_B << 1.0, 0.0;
 
-  MinvQ_T_C_x << (Jxx*0.1)*pow(torque_dob_fc,2),                                0.0;
-  MinvQ_T_C_y << (Jyy*0.1)*pow(torque_dob_fc,2),                                0.0;
+  MinvQ_T_C_x << (Jxx*0.01)*pow(torque_dob_fc,2),                                0.0;
+  MinvQ_T_C_y << (Jyy*0.01)*pow(torque_dob_fc,2),                                0.0;
   MinvQ_T_C_z << (Jzz*0.001)*pow(torque_dob_fc,2),                                0.0;
 
 
@@ -1473,7 +1482,7 @@ double x_th1 = 0;
 double x_th2 = 0;
 double x_th3 = 0;
 double x_th4 = 0;
-double th_cut_off_freq = 15.0; //origin :: 5
+double th_cut_off_freq = 50.0; //origin :: 5
 
 Eigen::VectorXd servo_LPF(4);
 
@@ -1567,7 +1576,14 @@ void PWM_signal_Generator()
 	}
   */
   //pwm_Kill();
-  pwm_Command(Force_to_PWM(F1),Force_to_PWM(F2), Force_to_PWM(F3), Force_to_PWM(F4),servo_angle,servo_angle);
+  //
+ 
+  /*
+  if(kill_mode){servo_angle = map<int16_t>(0,0,180, 2000, 1000);}
+  else{servo_angle = map<int16_t>(150,0,180, 2000, 1000);
+  	servo_pusher_angle = servo_angle;}
+  */
+  pwm_Command(Force_to_PWM(F1),Force_to_PWM(F2), Force_to_PWM(F3), Force_to_PWM(F4),servo_angle,servo_angle,servo_pusher_angle);
   //pwm_Arm(); wind generator
   Force_prop.data[0]=F1;
   Force_prop.data[1]=F2;
@@ -1580,7 +1596,7 @@ void PWM_signal_Generator()
 void reset_data()
 {
 
-  rpy_desired.z= main_attitude_opti.z; // t265_att.z  //[J]This line ensures that yaw desired right after disabling the kill switch becomes current yaw attitude
+  rpy_desired.z = main_attitude_opti.z; // t265_att.z  //[J]This line ensures that yaw desired right after disabling the kill switch becomes current yaw attitude
 
   XYZ_desired_base.x=position_from_t265.x;//main_position_opti_new.x;
   XYZ_desired_base.y=position_from_t265.y;//main_position_opti_new.y;
@@ -1723,7 +1739,7 @@ void imu_Callback(const sensor_msgs::Imu& msg)
     
     imu_rpy.z = main_attitude_opti.z;
     
-   /* 
+    /*
     base_yaw = t265_yaw_angle;
     if(base_yaw - yaw_prev < -pi) yaw_rotate_count++;
     else if(base_yaw - yaw_prev > pi) yaw_rotate_count--;
@@ -1778,11 +1794,11 @@ void t265_Odom_Callback(const nav_msgs::Odometry::ConstPtr& msg)
     double global_Y_dot = v(1)*(cos(imu_rpy.x)*cos(imu_rpy.z)+sin(imu_rpy.x)*sin(imu_rpy.z)*sin(imu_rpy.y))-v(2)*(cos(imu_rpy.z)*sin(imu_rpy.x)-cos(imu_rpy.x)*sin(imu_rpy.z)*sin(imu_rpy.y))+v(0)*cos(imu_rpy.y)*sin(imu_rpy.z);
     double global_Z_dot = -v(0)*sin(imu_rpy.y)+v(2)*cos(imu_rpy.x)*cos(imu_rpy.y)+v(1)*cos(imu_rpy.y)*sin(imu_rpy.x);
     
-	/*
-    lin_vel.x=global_X_dot;
-    lin_vel.y=global_Y_dot;
-    lin_vel.z=global_Z_dot;
-    */
+	
+    //lin_vel.x=global_X_dot;
+    //lin_vel.y=global_Y_dot;
+    //lin_vel.z=global_Z_dot;
+    
     lin_vel_opti.x = global_X_dot;
     lin_vel_opti.y = global_Y_dot;
     lin_vel_opti.z = global_Z_dot;
@@ -1845,6 +1861,8 @@ void sbus_Callback(const std_msgs::Int16MultiArray::ConstPtr& array)
 	DOB_mode=false;}
     //}
       }
+
+    //ROS_INFO("%d|%d|%d|%d|%d|%d|%d|%d",Sbus[0],Sbus[1],Sbus[2],Sbus[3],Sbus[4],Sbus[5],Sbus[6],Sbus[7]);
  
 }
 
@@ -1952,13 +1970,13 @@ void main_pose_data_Callback(const std_msgs::Float32MultiArray& msg){
 	main_position_opti_new.y = msg.data[1];
 	main_position_opti_new.z = msg.data[2];
 	
-	
+/*	
 	if((main_position_opti_new.x - main_position_opti_prev.x)!=0){
 	lin_vel_opti.x = (main_position_opti_new.x - main_position_opti_prev.x)/delta_t.count();
 	lin_vel_opti.y = (main_position_opti_new.y - main_position_opti_prev.y)/delta_t.count();
 	lin_vel_opti.z = (main_position_opti_new.z - main_position_opti_prev.z)/delta_t.count();
 	}
-
+*/
 	x_x_dot=-lin_vel_cut_off_freq*x_x+lin_vel_opti.x;
         x_x+=x_x_dot*delta_t.count();
   	x_y_dot=-lin_vel_cut_off_freq*x_y+lin_vel_opti.y;

@@ -27,6 +27,8 @@
     </include> 
 
 
+
+
 s!-- ros_mscl -->
     <include file="$(find microstrain_inertial_driver)/launch/microstrain.launch">
           <arg name="params_file"            default = "" />
@@ -56,7 +58,7 @@ s!-- ros_mscl -->
         <param name="baud" value="57600"/>
     </node>
 
-        <node pkg="pwm_pca9685" type="pca9685_node" name="pwm_generator"/>
+    <node pkg="pwm_pca9685" type="pca9685_node" name="pwm_generator"/>  
 
 
     <!-- FAC_MAV_Controller -->
@@ -125,9 +127,9 @@ s!-- ros_mscl -->
 		<param name="tilt_velocity_D_gain"	value="0.2"/> <!-- 0.2 -->
 
 		<!--Tilt Mode Position gains-->
-		<param name="tilt_position_P_gain"	value="2.0"/> <!-- 2.0 -->	
+		<param name="tilt_position_P_gain"	value="4.0"/> <!-- 2.0 -->	
 		<param name="tilt_position_I_gain"	value="0.01"/>	<!-- 0.01 -->
-		<param name="tilt_position_D_gain"	value="2.0"/>	<!-- 2.0 -->
+		<param name="tilt_position_D_gain"	value="4.0"/>	<!-- 2.0 -->
 
 		<node name="cad_uav_node"  pkg="FAC_MAV" type="cad_uav" output="screen"/>
 
